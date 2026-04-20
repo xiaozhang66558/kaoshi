@@ -8,7 +8,6 @@ import styles from '../styles/exam.module.css';
 
 export default function ExamPage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
   const [phase, setPhase] = useState('loading');
   const [session, setSession] = useState(null);
   const [questions, setQuestions] = useState([]);
@@ -19,6 +18,7 @@ export default function ExamPage() {
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const timerRef = useRef(null);
+  const textareaRef = useRef(null);
 
   // State cho màn hình chọn series/position
   const [seriesList, setSeriesList] = useState([]);
@@ -32,7 +32,6 @@ export default function ExamPage() {
       if (!s) { router.replace('/'); return; }
       const profile = await getProfile(s.user.id).catch(() => null);
       if (profile?.role === 'admin') { router.replace('/admin'); return; }
-      setUser({ ...s.user, profile });
       const active = await getActiveSession().catch(() => null);
       if (active) {
         await loadSession(active);
@@ -62,7 +61,7 @@ export default function ExamPage() {
       const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
       setPositionList(uniquePositions);
     } catch (err) {
-      console.error('Lỗi tải danh sách lọc:', err);
+      console.error(err);
     } finally {
       setLoadingOptions(false);
     }
@@ -116,7 +115,7 @@ export default function ExamPage() {
     }
   }
 
-  // Xử lý dán ảnh từ clipboard
+  // Xử lý dán ảnh
   const handlePasteImage = async (questionId, event) => {
     const items = event.clipboardData?.items;
     if (!items) return;
@@ -130,20 +129,19 @@ export default function ExamPage() {
     
     if (imageItems.length === 0) return;
     
-    const currentImages = answers[questionId]?.images || [];
-    if (currentImages.length + imageItems.length > 3) {
-      alert('Chỉ được dán tối đa 3 ảnh mỗi câu!');
+    const currentAnswer = answers[questionId] || { text: '', images: [] };
+    if (currentAnswer.images.length + imageItems.length > 3) {
+      alert('⚠️ Chỉ được dán tối đa 3 ảnh mỗi câu!');
       return;
     }
     
     setUploading(true);
-    const newImageUrls = [...currentImages];
+    const newImageUrls = [...currentAnswer.images];
     
     for (const item of imageItems) {
       const file = item.getAsFile();
       if (!file) continue;
       
-      // Upload lên Supabase Storage
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.png`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('exam-images')
@@ -161,18 +159,16 @@ export default function ExamPage() {
       newImageUrls.push(urlData.publicUrl);
     }
     
-    // Cập nhật state
     setAnswers(prev => ({
       ...prev,
-      [questionId]: { text: prev[questionId]?.text || '', images: newImageUrls }
+      [questionId]: { text: currentAnswer.text, images: newImageUrls }
     }));
     
-    // Lưu vào database
     setSaving(true);
     try {
-      await saveAnswer(session.id, questionId, answers[questionId]?.text || '', newImageUrls);
+      await saveAnswer(session.id, questionId, currentAnswer.text, newImageUrls);
     } catch (e) {
-      console.error('Lỗi lưu:', e);
+      console.error(e);
     } finally {
       setSaving(false);
       setUploading(false);
@@ -189,7 +185,7 @@ export default function ExamPage() {
     try {
       await saveAnswer(session.id, questionId, text, currentImages);
     } catch (e) {
-      console.error('Lỗi lưu:', e);
+      console.error(e);
     } finally {
       setSaving(false);
     }
@@ -207,7 +203,7 @@ export default function ExamPage() {
     try {
       await saveAnswer(session.id, questionId, current.text, newImages);
     } catch (e) {
-      console.error('Lỗi xóa ảnh:', e);
+      console.error(e);
     } finally {
       setSaving(false);
     }
@@ -323,57 +319,77 @@ export default function ExamPage() {
     <div className={styles.examPage}>
       <header className={styles.header}>
         <div className={styles.headerLeft}>
-          <span className={styles.logo}>ExamFlow</span>
-          <span className={styles.progress}>
-            {answeredCount}/{questions.length} đã trả lời
-          </span>
-          {saving && <span className={styles.saving}>Đang lưu...</span>}
+          <span className={styles.logo}>📝 ExamFlow</span>
+          <div className={styles.progressBadge}>
+            <span className={styles.progressCount}>{answeredCount}</span>
+            <span className={styles.progressTotal}>/{questions.length}</span>
+            <span className={styles.progressLabel}>đã trả lời</span>
+          </div>
+          {saving && <span className={styles.savingBadge}>💾 Đang lưu...</span>}
         </div>
         <div className={`${styles.timer} ${isLow ? styles.timerLow : ''}`}>
-          ⏱ {formatTime(timeLeft)}
+          <span className={styles.timerIcon}>⏱️</span>
+          <span className={styles.timerText}>{formatTime(timeLeft)}</span>
         </div>
         <button
           className={styles.submitBtn}
           onClick={() => handleSubmit(false)}
           disabled={submitting}
         >
-          {submitting ? 'Đang nộp...' : 'Nộp bài'}
+          {submitting ? '📤 Đang nộp...' : '📮 Nộp bài'}
         </button>
       </header>
 
       <div className={styles.examBody}>
         <main className={styles.questionPanel}>
           <div className={styles.questionMeta}>
-            <span className={styles.qNumber}>Câu {current + 1} / {questions.length}</span>
+            <div className={styles.questionBadge}>
+              <span className={styles.qNumber}>Câu {current + 1}</span>
+              <span className={styles.qTotal}>/{questions.length}</span>
+            </div>
             {q.topic && <span className={styles.qTopic}>{q.topic}</span>}
-            <span className={`${styles.qDiff} ${styles[q.difficulty]}`}>{q.difficulty}</span>
-            <span className={styles.qScore}>Điểm: {q.score}</span>
+            <span className={`${styles.qDiff} ${styles[q.difficulty]}`}>
+              {q.difficulty === 'easy' ? '⭐ Dễ' : q.difficulty === 'medium' ? '⭐⭐ Trung bình' : '⭐⭐⭐ Khó'}
+            </span>
+            <span className={styles.qScore}>🎯 {q.score} điểm</span>
           </div>
 
-          <p className={styles.questionText}>{q.question}</p>
+          <div className={styles.questionContent}>
+            <p className={styles.questionText}>{q.question}</p>
+          </div>
 
-          {/* Ô nhập câu trả lời tự luận */}
-          <div className={styles.essayAnswer}>
-            <label className={styles.answerLabel}>Câu trả lời của bạn:</label>
+          {/* Ô nhập câu trả lời */}
+          <div className={styles.answerSection}>
+            <label className={styles.answerLabel}>
+              📝 Câu trả lời của bạn:
+            </label>
             <textarea
+              ref={textareaRef}
               className={styles.answerTextarea}
-              rows={6}
+              rows={5}
               value={currentAnswer.text || ''}
               onChange={(e) => handleTextChange(q.id, e.target.value)}
               onPaste={(e) => handlePasteImage(q.id, e)}
-              placeholder="Nhập câu trả lời của bạn vào đây... (Có thể dán ảnh: Ctrl+V)"
+              placeholder="✍️ Nhập câu trả lời của bạn vào đây... (💡 Có thể dán ảnh: Ctrl+V)"
             />
-            {uploading && <span className={styles.uploading}>Đang tải ảnh lên...</span>}
+            {uploading && (
+              <div className={styles.uploadingIndicator}>
+                <span className={styles.spinnerSmall}></span>
+                Đang tải ảnh lên...
+              </div>
+            )}
           </div>
 
           {/* Hiển thị danh sách ảnh đã dán */}
           {currentAnswer.images.length > 0 && (
-            <div className={styles.imageList}>
-              <label>Ảnh đính kèm ({currentAnswer.images.length}/3):</label>
-              <div className={styles.imagesContainer}>
+            <div className={styles.imageSection}>
+              <label className={styles.imageLabel}>
+                🖼️ Ảnh đính kèm ({currentAnswer.images.length}/3):
+              </label>
+              <div className={styles.imagesGrid}>
                 {currentAnswer.images.map((url, idx) => (
-                  <div key={idx} className={styles.imageItem}>
-                    <img src={url} alt={`answer ${idx + 1}`} />
+                  <div key={idx} className={styles.imageCard}>
+                    <img src={url} alt={`answer ${idx + 1}`} className={styles.imagePreview} />
                     <button
                       type="button"
                       className={styles.removeImageBtn}
@@ -388,14 +404,18 @@ export default function ExamPage() {
             </div>
           )}
 
-          <div className={styles.nav}>
+          {/* Navigation buttons */}
+          <div className={styles.navButtons}>
             <button
-              className={styles.navBtn}
+              className={`${styles.navBtn} ${styles.navPrev}`}
               onClick={() => setCurrent(c => Math.max(0, c - 1))}
               disabled={current === 0}
             >
               ← Câu trước
             </button>
+            <div className={styles.navProgress}>
+              {current + 1} / {questions.length}
+            </div>
             <button
               className={`${styles.navBtn} ${styles.navNext}`}
               onClick={() => setCurrent(c => Math.min(questions.length - 1, c + 1))}
@@ -407,25 +427,47 @@ export default function ExamPage() {
         </main>
 
         <aside className={styles.sidebar}>
-          <p className={styles.sidebarTitle}>Danh sách câu hỏi</p>
+          <div className={styles.sidebarHeader}>
+            <span className={styles.sidebarIcon}>📋</span>
+            <span className={styles.sidebarTitle}>Danh sách câu hỏi</span>
+          </div>
           <div className={styles.qMap}>
             {questions.map((question, idx) => {
               const hasAnswer = answers[question.id]?.text?.trim();
+              const hasImages = answers[question.id]?.images?.length > 0;
               return (
                 <button
                   key={question.id}
-                  className={`${styles.qMapBtn} ${idx === current ? styles.qMapCurrent : ''} ${hasAnswer ? styles.qMapAnswered : ''}`}
+                  className={`${styles.qMapBtn} 
+                    ${idx === current ? styles.qMapCurrent : ''} 
+                    ${hasAnswer ? styles.qMapAnswered : ''}
+                    ${hasImages ? styles.qMapHasImage : ''}`}
                   onClick={() => setCurrent(idx)}
+                  title={hasAnswer ? 'Đã trả lời' : (hasImages ? 'Có ảnh' : 'Chưa trả lời')}
                 >
                   {idx + 1}
+                  {hasImages && <span className={styles.imageIcon}>🖼️</span>}
                 </button>
               );
             })}
           </div>
           <div className={styles.legend}>
-            <span><span className={`${styles.dot} ${styles.dotAnswered}`} />Đã trả lời</span>
-            <span><span className={`${styles.dot} ${styles.dotCurrent}`} />Đang xem</span>
-            <span><span className={styles.dot} />Chưa trả lời</span>
+            <div className={styles.legendItem}>
+              <span className={`${styles.legendDot} ${styles.legendAnswered}`}></span>
+              <span>Đã trả lời</span>
+            </div>
+            <div className={styles.legendItem}>
+              <span className={`${styles.legendDot} ${styles.legendCurrent}`}></span>
+              <span>Đang xem</span>
+            </div>
+            <div className={styles.legendItem}>
+              <span className={`${styles.legendDot}`}></span>
+              <span>Chưa trả lời</span>
+            </div>
+            <div className={styles.legendItem}>
+              <span className={styles.imageIconSmall}>🖼️</span>
+              <span>Có ảnh</span>
+            </div>
           </div>
         </aside>
       </div>
