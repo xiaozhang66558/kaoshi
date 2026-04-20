@@ -6,12 +6,10 @@ import {
 } from '../lib/supabase';
 import styles from '../styles/exam.module.css';
 
-const OPTION_LABELS = { a: 'A', b: 'B', c: 'C', d: 'D' };
-
 export default function ExamPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const [phase, setPhase] = useState('loading'); // loading | start | exam | result
+  const [phase, setPhase] = useState('loading'); // loading | select | exam | result
   const [session, setSession] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
@@ -20,6 +18,13 @@ export default function ExamPage() {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const timerRef = useRef(null);
+
+  // State cho màn hình chọn series/position
+  const [seriesList, setSeriesList] = useState([]);
+  const [positionList, setPositionList] = useState([]);
+  const [selectedSeries, setSelectedSeries] = useState('');
+  const [selectedPosition, setSelectedPosition] = useState('');
+  const [loadingOptions, setLoadingOptions] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
@@ -31,10 +36,37 @@ export default function ExamPage() {
       if (active) {
         await loadSession(active);
       } else {
-        setPhase('start');
+        await loadFilterOptions();
+        setPhase('select');
       }
     });
   }, []);
+
+  // Lấy danh sách series và position từ database
+  async function loadFilterOptions() {
+    setLoadingOptions(true);
+    try {
+      const { data: seriesData } = await supabase
+        .from('questions_cache')
+        .select('series')
+        .eq('is_active', true)
+        .not('series', 'is', null);
+      const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
+      setSeriesList(uniqueSeries);
+
+      const { data: positionData } = await supabase
+        .from('questions_cache')
+        .select('position')
+        .eq('is_active', true)
+        .not('position', 'is', null);
+      const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
+      setPositionList(uniquePositions);
+    } catch (err) {
+      console.error('Lỗi tải danh sách lọc:', err);
+    } finally {
+      setLoadingOptions(false);
+    }
+  }
 
   useEffect(() => {
     if (phase !== 'exam' || timeLeft <= 0) return;
@@ -64,14 +96,23 @@ export default function ExamPage() {
   }
 
   async function handleStart() {
+    if (!selectedSeries || !selectedPosition) {
+      alert('Vui lòng chọn Series và Position');
+      return;
+    }
     setPhase('loading');
     try {
-      await createExamSession({ numQuestions: 20, durationMins: 30 });
+      await createExamSession({
+        numQuestions: 10,
+        durationMins: 30,
+        series: selectedSeries,
+        position: selectedPosition
+      });
       const active = await getActiveSession();
       await loadSession(active);
     } catch (err) {
       alert(err.message);
-      setPhase('start');
+      setPhase('select');
     }
   }
 
@@ -109,7 +150,7 @@ export default function ExamPage() {
   const answeredCount = Object.keys(answers).length;
   const q = questions[current];
 
-  // ─── RENDER CÁC MÀN HÌNH DỰA VÀO phase ─────────────────
+  // ─── MÀN HÌNH LOADING ─────────────────
   if (phase === 'loading') {
     return (
       <div className={styles.center}>
@@ -119,30 +160,38 @@ export default function ExamPage() {
     );
   }
 
-  if (phase === 'start') {
+  // ─── MÀN HÌNH CHỌN SERIES & POSITION ─────────────────
+  if (phase === 'select') {
     return (
       <div className={styles.center}>
         <div className={styles.startCard}>
           <div className={styles.startIcon}>📋</div>
-          <h1 className={styles.startTitle}>Sẵn sàng làm bài thi?</h1>
-          <div className={styles.startInfo}>
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>Số câu hỏi</span>
-              <span className={styles.infoValue}>20 câu</span>
-            </div>
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>Thời gian</span>
-              <span className={styles.infoValue}>30 phút</span>
-            </div>
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>Câu hỏi random</span>
-              <span className={styles.infoValue}>Mỗi người một đề</span>
-            </div>
+          <h1 className={styles.startTitle}>Chọn bộ câu hỏi</h1>
+          <div className={styles.selectGroup}>
+            <label className={styles.selectLabel}>系列 (Series)</label>
+            <select
+              className={styles.select}
+              value={selectedSeries}
+              onChange={(e) => setSelectedSeries(e.target.value)}
+              disabled={loadingOptions}
+            >
+              <option value="">-- Chọn series --</option>
+              {seriesList.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
-          <p className={styles.startNote}>
-            ⚠️ Sau khi bắt đầu, đồng hồ sẽ chạy. Câu trả lời được lưu tự động.
-          </p>
-          <button className={styles.startBtn} onClick={handleStart}>
+          <div className={styles.selectGroup}>
+            <label className={styles.selectLabel}>岗位 (Position)</label>
+            <select
+              className={styles.select}
+              value={selectedPosition}
+              onChange={(e) => setSelectedPosition(e.target.value)}
+              disabled={loadingOptions}
+            >
+              <option value="">-- Chọn position --</option>
+              {positionList.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <button className={styles.startBtn} onClick={handleStart} disabled={loadingOptions}>
             Bắt đầu làm bài
           </button>
           <button
@@ -159,6 +208,7 @@ export default function ExamPage() {
     );
   }
 
+  // ─── MÀN HÌNH KẾT QUẢ ─────────────────
   if (phase === 'result') {
     return (
       <div className={styles.center}>
@@ -186,6 +236,7 @@ export default function ExamPage() {
   if (!q) return null;
   const isLow = timeLeft < 300;
 
+  // ─── MÀN HÌNH LÀM BÀI (TỰ LUẬN) ─────────────────
   return (
     <div className={styles.examPage}>
       <header className={styles.header}>
@@ -214,21 +265,28 @@ export default function ExamPage() {
             <span className={styles.qNumber}>Câu {current + 1} / {questions.length}</span>
             {q.topic && <span className={styles.qTopic}>{q.topic}</span>}
             <span className={`${styles.qDiff} ${styles[q.difficulty]}`}>{q.difficulty}</span>
+            <span className={styles.qScore}>Điểm: {q.score}</span>
           </div>
+
+          {/* Hiển thị hình ảnh nếu có */}
+          {q.image_url && (
+            <div className={styles.questionImage}>
+              <img src={q.image_url} alt="Câu hỏi hình ảnh" />
+            </div>
+          )}
 
           <p className={styles.questionText}>{q.question}</p>
 
-          <div className={styles.options}>
-            {['a', 'b', 'c', 'd'].map(opt => (
-              <button
-                key={opt}
-                className={`${styles.option} ${answers[q.id] === opt ? styles.selected : ''}`}
-                onClick={() => handleAnswer(q.id, opt)}
-              >
-                <span className={styles.optLabel}>{OPTION_LABELS[opt]}</span>
-                <span className={styles.optText}>{q[`option_${opt}`]}</span>
-              </button>
-            ))}
+          {/* Ô nhập câu trả lời tự luận */}
+          <div className={styles.essayAnswer}>
+            <label className={styles.answerLabel}>Câu trả lời của bạn:</label>
+            <textarea
+              className={styles.answerTextarea}
+              rows={6}
+              value={answers[q.id] || ''}
+              onChange={(e) => handleAnswer(q.id, e.target.value)}
+              placeholder="Nhập câu trả lời của bạn vào đây..."
+            />
           </div>
 
           <div className={styles.nav}>
