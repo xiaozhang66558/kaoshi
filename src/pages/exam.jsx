@@ -126,19 +126,24 @@ export default function ExamPage() {
       if (!file) continue;
       
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.png`;
-      const { error: uploadError } = await supabase.storage
+      
+      // Upload lên Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('exam-images')
         .upload(fileName, file);
       
       if (uploadError) {
         console.error('Upload lỗi:', uploadError);
+        alert('Upload ảnh thất bại: ' + uploadError.message);
         continue;
       }
       
+      // Lấy public URL
       const { data: urlData } = supabase.storage
         .from('exam-images')
         .getPublicUrl(fileName);
       
+      console.log('Upload thành công, URL:', urlData.publicUrl);
       newImageUrls.push(urlData.publicUrl);
     }
     
