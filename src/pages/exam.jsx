@@ -9,14 +9,15 @@ import styles from '../styles/exam.module.css';
 export default function ExamPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const [phase, setPhase] = useState('loading'); // loading | select | exam | result
+  const [phase, setPhase] = useState('loading');
   const [session, setSession] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState({});
+  const [answers, setAnswers] = useState({}); // { questionId: { text: '', images: [] } }
   const [timeLeft, setTimeLeft] = useState(0);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const timerRef = useRef(null);
 
   // State cho màn hình chọn series/position
@@ -42,7 +43,6 @@ export default function ExamPage() {
     });
   }, []);
 
-  // Lấy danh sách series và position từ database
   async function loadFilterOptions() {
     setLoadingOptions(true);
     try {
@@ -86,11 +86,11 @@ export default function ExamPage() {
   async function loadSession(s) {
     const { session: sess, questions: qs } = await getSessionWithQuestions(s.id);
     const savedAnswers = await getAnswers(s.id);
-    const elapsed = Math.floor((Date.now() - new Date(sess.started_at).getTime()) / 1000);
-    const remaining = Math.max(0, sess.duration_minutes * 60 - elapsed);
     setSession(sess);
     setQuestions(qs);
     setAnswers(savedAnswers);
+    const elapsed = Math.floor((Date.now() - new Date(sess.started_at).getTime()) / 1000);
+    const remaining = Math.max(0, sess.duration_minutes * 60 - elapsed);
     setTimeLeft(remaining);
     setPhase('exam');
   }
@@ -116,17 +116,102 @@ export default function ExamPage() {
     }
   }
 
-  const handleAnswer = useCallback(async (questionId, answer) => {
-    setAnswers(prev => ({ ...prev, [questionId]: answer }));
+  // Xử lý dán ảnh từ clipboard
+  const handlePasteImage = async (questionId, event) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    
+    const imageItems = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        imageItems.push(items[i]);
+      }
+    }
+    
+    if (imageItems.length === 0) return;
+    
+    const currentImages = answers[questionId]?.images || [];
+    if (currentImages.length + imageItems.length > 3) {
+      alert('Chỉ được dán tối đa 3 ảnh mỗi câu!');
+      return;
+    }
+    
+    setUploading(true);
+    const newImageUrls = [...currentImages];
+    
+    for (const item of imageItems) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      
+      // Upload lên Supabase Storage
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.png`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('exam-images')
+        .upload(fileName, file);
+      
+      if (uploadError) {
+        console.error('Upload lỗi:', uploadError);
+        continue;
+      }
+      
+      const { data: urlData } = supabase.storage
+        .from('exam-images')
+        .getPublicUrl(fileName);
+      
+      newImageUrls.push(urlData.publicUrl);
+    }
+    
+    // Cập nhật state
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: { text: prev[questionId]?.text || '', images: newImageUrls }
+    }));
+    
+    // Lưu vào database
     setSaving(true);
     try {
-      await saveAnswer(session.id, questionId, answer);
+      await saveAnswer(session.id, questionId, answers[questionId]?.text || '', newImageUrls);
     } catch (e) {
-      console.error('Lỗi lưu câu trả lời:', e);
+      console.error('Lỗi lưu:', e);
+    } finally {
+      setSaving(false);
+      setUploading(false);
+    }
+  };
+  
+  const handleTextChange = async (questionId, text) => {
+    const currentImages = answers[questionId]?.images || [];
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: { text, images: currentImages }
+    }));
+    setSaving(true);
+    try {
+      await saveAnswer(session.id, questionId, text, currentImages);
+    } catch (e) {
+      console.error('Lỗi lưu:', e);
     } finally {
       setSaving(false);
     }
-  }, [session]);
+  };
+  
+  const removeImage = async (questionId, imageIndex) => {
+    const current = answers[questionId];
+    if (!current) return;
+    const newImages = current.images.filter((_, i) => i !== imageIndex);
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: { text: current.text, images: newImages }
+    }));
+    setSaving(true);
+    try {
+      await saveAnswer(session.id, questionId, current.text, newImages);
+    } catch (e) {
+      console.error('Lỗi xóa ảnh:', e);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   async function handleSubmit(auto = false) {
     if (!auto && !confirm('Bạn có chắc muốn nộp bài không?')) return;
@@ -147,10 +232,9 @@ export default function ExamPage() {
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   };
 
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = Object.keys(answers).filter(id => answers[id]?.text?.trim()).length;
   const q = questions[current];
 
-  // ─── MÀN HÌNH LOADING ─────────────────
   if (phase === 'loading') {
     return (
       <div className={styles.center}>
@@ -160,7 +244,6 @@ export default function ExamPage() {
     );
   }
 
-  // ─── MÀN HÌNH CHỌN SERIES & POSITION ─────────────────
   if (phase === 'select') {
     return (
       <div className={styles.center}>
@@ -208,7 +291,6 @@ export default function ExamPage() {
     );
   }
 
-  // ─── MÀN HÌNH KẾT QUẢ ─────────────────
   if (phase === 'result') {
     return (
       <div className={styles.center}>
@@ -235,8 +317,8 @@ export default function ExamPage() {
 
   if (!q) return null;
   const isLow = timeLeft < 300;
+  const currentAnswer = answers[q.id] || { text: '', images: [] };
 
-  // ─── MÀN HÌNH LÀM BÀI (TỰ LUẬN) ─────────────────
   return (
     <div className={styles.examPage}>
       <header className={styles.header}>
@@ -268,13 +350,6 @@ export default function ExamPage() {
             <span className={styles.qScore}>Điểm: {q.score}</span>
           </div>
 
-          {/* Hiển thị hình ảnh nếu có */}
-          {q.image_url && (
-            <div className={styles.questionImage}>
-              <img src={q.image_url} alt="Câu hỏi hình ảnh" />
-            </div>
-          )}
-
           <p className={styles.questionText}>{q.question}</p>
 
           {/* Ô nhập câu trả lời tự luận */}
@@ -283,11 +358,35 @@ export default function ExamPage() {
             <textarea
               className={styles.answerTextarea}
               rows={6}
-              value={answers[q.id] || ''}
-              onChange={(e) => handleAnswer(q.id, e.target.value)}
-              placeholder="Nhập câu trả lời của bạn vào đây..."
+              value={currentAnswer.text || ''}
+              onChange={(e) => handleTextChange(q.id, e.target.value)}
+              onPaste={(e) => handlePasteImage(q.id, e)}
+              placeholder="Nhập câu trả lời của bạn vào đây... (Có thể dán ảnh: Ctrl+V)"
             />
+            {uploading && <span className={styles.uploading}>Đang tải ảnh lên...</span>}
           </div>
+
+          {/* Hiển thị danh sách ảnh đã dán */}
+          {currentAnswer.images.length > 0 && (
+            <div className={styles.imageList}>
+              <label>Ảnh đính kèm ({currentAnswer.images.length}/3):</label>
+              <div className={styles.imagesContainer}>
+                {currentAnswer.images.map((url, idx) => (
+                  <div key={idx} className={styles.imageItem}>
+                    <img src={url} alt={`answer ${idx + 1}`} />
+                    <button
+                      type="button"
+                      className={styles.removeImageBtn}
+                      onClick={() => removeImage(q.id, idx)}
+                      title="Xóa ảnh"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className={styles.nav}>
             <button
@@ -310,15 +409,18 @@ export default function ExamPage() {
         <aside className={styles.sidebar}>
           <p className={styles.sidebarTitle}>Danh sách câu hỏi</p>
           <div className={styles.qMap}>
-            {questions.map((question, idx) => (
-              <button
-                key={question.id}
-                className={`${styles.qMapBtn} ${idx === current ? styles.qMapCurrent : ''} ${answers[question.id] ? styles.qMapAnswered : ''}`}
-                onClick={() => setCurrent(idx)}
-              >
-                {idx + 1}
-              </button>
-            ))}
+            {questions.map((question, idx) => {
+              const hasAnswer = answers[question.id]?.text?.trim();
+              return (
+                <button
+                  key={question.id}
+                  className={`${styles.qMapBtn} ${idx === current ? styles.qMapCurrent : ''} ${hasAnswer ? styles.qMapAnswered : ''}`}
+                  onClick={() => setCurrent(idx)}
+                >
+                  {idx + 1}
+                </button>
+              );
+            })}
           </div>
           <div className={styles.legend}>
             <span><span className={`${styles.dot} ${styles.dotAnswered}`} />Đã trả lời</span>
