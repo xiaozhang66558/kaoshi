@@ -247,7 +247,6 @@ export default function ExamPage() {
 
   return (
     <div className={styles.examPage}>
-      {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <span className={styles.logo}>📝 ExamFlow</span>
@@ -263,7 +262,6 @@ export default function ExamPage() {
       </header>
 
       <div className={styles.examBody}>
-        {/* Main panel */}
         <main className={styles.questionPanel}>
           {/* Khung câu hỏi */}
           <div className={styles.questionBox}>
@@ -296,37 +294,49 @@ export default function ExamPage() {
             />
             {uploading && <div className={styles.uploadingText}>⏳ Đang tải ảnh lên...</div>}
 
-            {/* Khung hiển thị ảnh đã dán */}
-            {currentAnswer.images.length > 0 && (
-              <div className={styles.imagesBox}>
-                <div className={styles.imagesHeader}>🖼️ Ảnh đã dán ({currentAnswer.images.length}/3)</div>
-                <div className={styles.imagesGrid}>
-                  {currentAnswer.images.map((url, idx) => (
-                    <div key={idx} className={styles.imageCard}>
-                      <img src={url} alt={`img${idx+1}`} />
-                      <button className={styles.removeImageBtn} onClick={() => removeImage(q.id, idx)}>✕</button>
+            {/* Khung hiển thị 3 ảnh cố định */}
+            <div className={styles.imagesBox}>
+              <div className={styles.imagesHeader}>🖼️ Ảnh đính kèm (tối đa 3 ảnh)</div>
+              <div className={styles.imagesGrid}>
+                {[0, 1, 2].map((idx) => {
+                  const imageUrl = currentAnswer.images[idx];
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`${styles.imageCard} ${imageUrl ? styles.hasImage : ''}`}
+                    >
+                      {imageUrl ? (
+                        <>
+                          <img src={imageUrl} alt={`answer ${idx + 1}`} />
+                          <button
+                            className={styles.removeImageBtn}
+                            onClick={() => removeImage(q.id, idx)}
+                            title="Xóa ảnh"
+                          >
+                            ✕
+                          </button>
+                        </>
+                      ) : (
+                        <div className={styles.imagePlaceholder}>
+                          <span>🖼️</span>
+                          <span>Chưa có ảnh</span>
+                          <span className={styles.imageHint}>(Ctrl+V để dán)</span>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Navigation */}
           <div className={styles.navSection}>
-            <button 
-              className={styles.navPrev} 
-              onClick={() => setCurrent(c => c-1)} 
-              disabled={current === 0}
-            >
+            <button className={styles.navPrev} onClick={() => setCurrent(c => c-1)} disabled={current === 0}>
               ← Câu trước
             </button>
             <span className={styles.navInfo}>{current+1} / {questions.length}</span>
-            <button 
-              className={styles.navNext} 
-              onClick={() => setCurrent(c => c+1)} 
-              disabled={current === questions.length-1}
-            >
+            <button className={styles.navNext} onClick={() => setCurrent(c => c+1)} disabled={current === questions.length-1}>
               Câu tiếp →
             </button>
           </div>
