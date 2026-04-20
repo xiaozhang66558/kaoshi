@@ -117,18 +117,22 @@ export async function getAllSessions({ page = 1, limit = 20 } = {}) {
   return { data, count };
 }
 
-export async function getSessionDetail(sessionId) {
-  const { data: session, error: sErr } = await supabase
+// Lấy danh sách bài thi đã nộp (chờ chấm điểm)
+export async function getSubmittedSessions() {
+  const { data, error } = await supabase
     .from('exam_sessions')
-    .select('*, profiles (full_name, email)')
-    .eq('id', sessionId)
-    .single();
-  if (sErr) throw sErr;
-  const { data: subs, error: subErr } = await supabase
-    .from('submissions')
-    .select(`*, questions_cache (question, option_a, option_b, option_c, option_d, correct_answer, topic)`)
-    .eq('session_id', sessionId)
-    .order('answered_at');
-  if (subErr) throw subErr;
-  return { session, submissions: subs };
+    .select('*, profiles(full_name, email)')
+    .eq('status', 'submitted')
+    .order('submitted_at', { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+// Admin chấm điểm một câu trả lời (cập nhật điểm và trạng thái)
+export async function gradeSubmission(submissionId, score) {
+  const { error } = await supabase.rpc('grade_submission', {
+    p_submission_id: submissionId,
+    p_score: score,
+  });
+  if (error) throw error;
 }
