@@ -34,18 +34,28 @@
   margin-bottom: 0.25rem;
   font-weight: 500;
 }
-select, .startBtn {
+
+/* Tách riêng select và .startBtn */
+select {
   width: 100%;
   padding: 0.5rem;
   border-radius: 0.5rem;
   border: 1px solid #ddd;
+  background: white;
 }
+
 .startBtn {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
   background: #4f46e5;
   color: white;
   border: none;
   margin-top: 0.5rem;
   cursor: pointer;
+}
+.startBtn:hover {
+  background: #4338ca;
 }
 
 /* Exam Page */
@@ -128,14 +138,13 @@ select, .startBtn {
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-/* ===== KHUNG CÂU HỎI ===== */
+/* Khung câu hỏi */
 .questionBox {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border-radius: 1rem;
   padding: 1.25rem;
   margin-bottom: 1.5rem;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
 .questionHeader {
   display: flex;
@@ -185,7 +194,7 @@ select, .startBtn {
   font-weight: 500;
 }
 
-/* ===== KHUNG CÂU TRẢ LỜI ===== */
+/* Khung câu trả lời */
 .answerBox {
   background: white;
   border-radius: 1rem;
@@ -220,7 +229,6 @@ select, .startBtn {
   font-family: inherit;
   resize: vertical;
   background: #fafbfc;
-  transition: all 0.2s;
 }
 .answerTextarea:focus {
   outline: none;
@@ -231,12 +239,9 @@ select, .startBtn {
   font-size: 0.7rem;
   color: #64748b;
   margin-top: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
 }
 
-/* ===== KHUNG HIỂN THỊ ẢNH ===== */
+/* Khung hiển thị ảnh */
 .imagesBox {
   margin-top: 1rem;
   padding: 1rem;
@@ -285,11 +290,9 @@ select, .startBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
 }
 .removeImageBtn:hover {
   background: #ef4444;
-  transform: scale(1.05);
 }
 
 /* Navigation */
@@ -308,11 +311,9 @@ select, .startBtn {
   border-radius: 999px;
   cursor: pointer;
   font-weight: 500;
-  transition: all 0.2s;
 }
 .navPrev:hover:not(:disabled), .navNext:hover:not(:disabled) {
   background: #d1d5db;
-  transform: translateY(-1px);
 }
 .navPrev:disabled, .navNext:disabled {
   opacity: 0.4;
@@ -366,11 +367,9 @@ select, .startBtn {
   font-weight: 500;
   position: relative;
   font-size: 0.875rem;
-  transition: all 0.2s;
 }
 .qBtn:hover {
   background: #e5e7eb;
-  transform: scale(1.02);
 }
 .qCurrent {
   background: #4f46e5;
@@ -390,8 +389,6 @@ select, .startBtn {
   background: white;
   border-radius: 50%;
   padding: 1px;
-  line-height: 1;
-  box-shadow: 0 0 0 1px white;
 }
 
 /* Legend */
