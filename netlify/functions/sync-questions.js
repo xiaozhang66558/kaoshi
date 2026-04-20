@@ -1,7 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Đọc từ cột A đến E, bắt đầu từ dòng 2 (bỏ qua header)
-// Cấu trúc: A=series, B=position, C=question, D=score, E=difficulty (1=easy, 2=medium, 3=hard)
 const SHEET_RANGE = 'Sheet1!A2:E1000';
 
 exports.handler = async (event) => {
@@ -29,11 +27,9 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
 
-    // Chuyển đổi dữ liệu từ Google Sheet
     const questions = rows
-      .filter(row => row.length >= 3 && row[2]) // cần có câu hỏi (cột C)
+      .filter(row => row.length >= 3 && row[2])
       .map((row, idx) => {
-        // Chuyển đổi difficulty từ số sang text (1=easy, 2=medium, 3=hard)
         const diffValue = String(row[4] || '1').trim();
         let difficulty = 'medium';
         if (diffValue === '1') difficulty = 'easy';
@@ -41,19 +37,15 @@ exports.handler = async (event) => {
         else if (diffValue === '3') difficulty = 'hard';
         
         return {
-          sheet_row_id: `q_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`, // ID duy nhất tuyệt đối
-          series:       String(row[0] || '').trim(),   // cột A
-          position:     String(row[1] || '').trim(),   // cột B
-          question:     String(row[2] || '').trim(),   // cột C
-          score:        parseInt(row[3]) || 10,        // cột D (mặc định 10)
-          difficulty:   difficulty,                     // cột E (đã chuyển sang text)
+          sheet_row_id: `q_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+          series:       String(row[0] || '').trim(),
+          position:     String(row[1] || '').trim(),
+          question:     String(row[2] || '').trim(),
+          score:        parseInt(row[3]) || 10,
+          difficulty:   difficulty,
           is_active:    true,
           synced_at:    new Date().toISOString(),
-          // Các cột option để trống vì dùng tự luận
-          option_a: '',
-          option_b: '',
-          option_c: '',
-          option_d: '',
+          option_a: '', option_b: '', option_c: '', option_d: '',
         };
       });
 
@@ -66,21 +58,22 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Xóa dữ liệu cũ trong bảng questions_cache
-    const { error: deleteError } = await supabase
-      .from('questions_cache')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // xóa tất cả
-
-    if (deleteError) throw deleteError;
-
     // Insert dữ liệu mới
-    const { error: insertError, data } = await supabase
+    const { error: insertError } = await supabase
       .from('questions_cache')
-      .insert(questions)
-      .select();
+      .insert(questions);
 
     if (insertError) throw insertError;
+
+    // Vô hiệu hóa câu hỏi không còn trong sheet
+    const activeIds = questions.map(q => q.sheet_row_id);
+    if (activeIds.length > 0) {
+      const { error: updateError } = await supabase
+        .from('questions_cache')
+        .update({ is_active: false })
+        .not('sheet_row_id', 'in', `(${activeIds.map(id => `"${id}"`).join(',')})`);
+      if (updateError) throw updateError;
+    }
 
     console.log(`[sync-questions] Đã đồng bộ ${questions.length} câu hỏi`);
 
@@ -89,8 +82,7 @@ exports.handler = async (event) => {
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: questions.length,
-        data: data 
+        synced: questions.length
       }),
     };
   } catch (err) {
