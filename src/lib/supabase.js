@@ -60,25 +60,22 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Chưa đăng nhập');
 
-  // Kiểm tra xem đã có session in_progress chưa
-  const { data: existingSession, error: checkError } = await supabase
+  // Kiểm tra đã có session in_progress chưa
+  const { data: existing, error: checkErr } = await supabase
     .from('exam_sessions')
     .select('id')
     .eq('user_id', user.id)
     .eq('status', 'in_progress')
     .maybeSingle();
-  if (existingSession) throw new Error('Bạn đang có bài thi chưa hoàn thành');
+  if (existing) throw new Error('Bạn đang có bài thi chưa hoàn thành');
 
-  // Lấy câu hỏi từ bảng questions_cache với điều kiện series/position
-  let query = supabase
-    .from('questions_cache')
-    .select('id')
-    .eq('is_active', true);
+  // Lấy danh sách câu hỏi theo series/position
+  let query = supabase.from('questions_cache').select('id').eq('is_active', true);
   if (series) query = query.eq('series', series);
   if (position) query = query.eq('position', position);
   
-  const { data: questions, error: questionsError } = await query;
-  if (questionsError) throw questionsError;
+  const { data: questions, error: qErr } = await query;
+  if (qErr) throw qErr;
   if (!questions || questions.length < numQuestions) {
     throw new Error(`Không đủ câu hỏi (cần ${numQuestions}, có ${questions?.length || 0})`);
   }
@@ -92,7 +89,7 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
   const selectedIds = shuffled.slice(0, numQuestions).map(q => q.id);
 
   // Tạo session mới
-  const { data: session, error: insertError } = await supabase
+  const { data: session, error: insertErr } = await supabase
     .from('exam_sessions')
     .insert({
       user_id: user.id,
@@ -104,7 +101,7 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
     .select()
     .single();
 
-  if (insertError) throw insertError;
+  if (insertErr) throw insertErr;
   return session.id;
 }
 
