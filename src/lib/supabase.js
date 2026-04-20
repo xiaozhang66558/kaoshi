@@ -219,7 +219,7 @@ export async function getSessionDetail(sessionId) {
     .single();
   if (sErr) throw sErr;
   
-  // Lấy profiles riêng
+  // Lấy profiles riêng (tránh lỗi foreign key)
   const { data: profile, error: pErr } = await supabase
     .from('profiles')
     .select('full_name, email, username')
@@ -229,10 +229,29 @@ export async function getSessionDetail(sessionId) {
     session.profiles = profile;
   }
   
-  // Lấy submissions
+  // Lấy submissions bao gồm image_urls
   const { data: subs, error: subErr } = await supabase
     .from('submissions')
-    .select(`*, questions_cache (*)`)
+    .select(`
+      id,
+      session_id,
+      question_id,
+      user_answer,
+      image_urls,
+      score,
+      graded_by,
+      graded_at,
+      answered_at,
+      questions_cache (
+        question,
+        option_a,
+        option_b,
+        option_c,
+        option_d,
+        score,
+        difficulty
+      )
+    `)
     .eq('session_id', sessionId)
     .order('answered_at');
   if (subErr) throw subErr;
