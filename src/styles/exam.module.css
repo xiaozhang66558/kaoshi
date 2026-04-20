@@ -35,15 +35,6 @@
   font-weight: 500;
 }
 
-/* Dùng :global cho selector thẻ HTML */
-:global(select) {
-  width: 100%;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  border: 1px solid #ddd;
-  background: white;
-}
-
 .startBtn {
   width: 100%;
   padding: 0.5rem;
