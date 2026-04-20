@@ -5,10 +5,10 @@ import styles from '../styles/auth.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState('login');
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -21,48 +21,36 @@ export default function LoginPage() {
     });
   }, []);
 
-  // Tạo email ảo duy nhất dựa trên username + timestamp + random
-  const generateUniqueEmail = (username) => {
-    const clean = username.trim().replace(/[^a-zA-Z0-9_-]/g, '');
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 6);
-    return `${clean}_${timestamp}_${random}@local.app`;
+  // Hàm tạo email ảo từ username
+  const generateEmail = (username) => {
+    // Chỉ cho phép chữ cái, số, dấu gạch dưới và dấu gạch ngang
+    const cleanUsername = username.trim().replace(/[^a-zA-Z0-9_-]/g, '');
+    return `${cleanUsername}@local.app`;
   };
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
     try {
       if (mode === 'login') {
-        // Đăng nhập: cần email ảo, nhưng làm sao biết email của user đã đăng ký?
-        // Vấn đề: không thể lấy lại email từ username. Do đó cần lưu username vào metadata.
-        // Giải pháp: khi đăng ký, lưu username vào metadata; khi đăng nhập, tìm user bằng API.
-        // Đơn giản hơn: vẫn dùng email ảo nhưng cho phép đăng nhập bằng username? Không được.
-        // Cách tốt: Khi đăng nhập, yêu cầu nhập email (nhưng bạn không muốn). 
-        // Vậy phải lưu username vào metadata, và khi đăng nhập thì tìm email từ username qua API.
-        // Tôi sẽ cung cấp giải pháp phức tạp hơn: lưu username, và đăng nhập qua username bằng cách gọi hàm tìm email trước.
-        // Nhưng để đơn giản, tôi khuyên bạn nên cho phép người dùng nhập email (hoặc username) và tự chuyển đổi.
-        // Bạn có muốn tôi làm theo cách ẩn email nhưng cho phép đăng nhập bằng username không?
-        // Nếu có, tôi sẽ viết thêm API tìm email từ username.
-        // Hiện tại, tôi tạm thời báo lỗi hướng dẫn.
-        setError('Vui lòng đăng nhập bằng email đã đăng ký. Hoặc liên hệ admin.');
-        setLoading(false);
-        return;
-      } else {
-        // Đăng ký
-        const email = generateUniqueEmail(username);
-        await signUp(email, password, fullName);
-        // Sau khi đăng ký, cập nhật bảng profiles để lưu username
+        // Đăng nhập: tạo email ảo từ username và đăng nhập
+        const email = generateEmail(username);
+        await signIn(email, password);
         const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from('profiles').update({ full_name: fullName, username: username }).eq('id', user.id);
-        }
-        alert('Đăng ký thành công! Bạn có thể đăng nhập bằng email (hệ thống tự tạo) nhưng để dễ dàng, hãy liên hệ admin lấy email. Hoặc dùng chức năng quên mật khẩu?');
+        const profile = await getProfile(user.id);
+        if (profile?.role === 'admin') router.replace('/admin');
+        else router.replace('/exam');
+      } else {
+        // Đăng ký: tạo email ảo từ username và đăng ký
+        const email = generateEmail(username);
+        await signUp(email, password, name);
+        alert('Đăng ký thành công! Bạn có thể đăng nhập ngay.');
         setMode('login');
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Đã có lỗi xảy ra');
     } finally {
       setLoading(false);
     }
@@ -71,63 +59,87 @@ export default function LoginPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <h2>{mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}</h2>
-        {mode === 'login' ? (
-          <p>Nhập email và mật khẩu (email được tạo khi đăng ký)</p>
-        ) : (
-          <p>Tạo tài khoản mới (không cần email thật)</p>
-        )}
-        <form onSubmit={handleSubmit}>
-          {mode === 'register' && (
-            <div className={styles.field}>
-              <label>Tên đăng nhập (duy nhất)</label>
-              <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                required
-              />
-            </div>
-          )}
-          {mode === 'register' && (
-            <div className={styles.field}>
-              <label>Họ tên</label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                required
-              />
-            </div>
-          )}
-          {mode === 'login' && (
-            <div className={styles.field}>
-              <label>Email</label>
-              <input
-                type="email"
-                value={username} // tái sử dụng state username nhưng thực chất là email
-                onChange={e => setUsername(e.target.value)}
-                required
-              />
-            </div>
-          )}
+        <div className={styles.brand}>
+          <div className={styles.brandIcon}>
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <rect width="32" height="32" rx="8" fill="#1a1a2e"/>
+              <path d="M8 10h16M8 16h10M8 22h13" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <h1 className={styles.brandName}>ExamFlow</h1>
+        </div>
+        <h2 className={styles.title}>{mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}</h2>
+        <p className={styles.subtitle}>
+          {mode === 'login' 
+            ? 'Nhập tên đăng nhập và mật khẩu' 
+            : 'Điền thông tin để tạo tài khoản'}
+        </p>
+        <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.field}>
-            <label>Mật khẩu</label>
+            <label className={styles.label}>Tên đăng nhập</label>
             <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
+              className={styles.input}
+              type="text"
+              value={username}
+              onChange={(e) => {
+                // Chỉ cho phép chữ cái, số, dấu gạch dưới và dấu gạch ngang
+                const value = e.target.value.replace(/[^a-zA-Z0-9_-]/g, '');
+                setUsername(value);
+              }}
+              placeholder="Ví dụ: nguyenvana123"
               required
             />
           </div>
+
+          {mode === 'register' && (
+            <div className={styles.field}>
+              <label className={styles.label}>Họ và tên</label>
+              <input
+                className={styles.input}
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Nguyễn Văn A"
+                required
+              />
+            </div>
+          )}
+
+          <div className={styles.field}>
+            <label className={styles.label}>Mật khẩu</label>
+            <input
+              className={styles.input}
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              minLength={6}
+            />
+          </div>
+
           {error && <div className={styles.error}>{error}</div>}
-          <button type="submit" disabled={loading}>
-            {mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}
+          
+          <button className={styles.btn} type="submit" disabled={loading}>
+            {loading 
+              ? <span className={styles.spinner} /> 
+              : mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
           </button>
         </form>
-        <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
-          {mode === 'login' ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'}
-        </button>
+
+        <p className={styles.switchMode}>
+          {mode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
+          {' '}
+          <button 
+            className={styles.link} 
+            onClick={() => { 
+              setMode(mode === 'login' ? 'register' : 'login'); 
+              setError('');
+            }}
+          >
+            {mode === 'login' ? 'Đăng ký ngay' : 'Đăng nhập'}
+          </button>
+        </p>
       </div>
     </div>
   );
