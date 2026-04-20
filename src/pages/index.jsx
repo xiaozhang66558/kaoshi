@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { supabase, getProfile, getAllSessions, getSessionDetail, getSubmittedSessions, gradeSubmission } from '../../lib/supabase';
-import styles from '../../styles/admin.module.css';
+import { supabase, signUp, signInWithUsername, getProfile } from '../lib/supabase';
+import styles from '../styles/auth.module.css';
 
 const SYNC_URL = '/.netlify/functions/sync-questions';
 
