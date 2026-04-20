@@ -55,17 +55,57 @@ export async function getProfile(userId) {
 }
 
 // ========== EXAM ==========
-export async function createExamSession({ numQuestions = 20, durationMins = 30, topic = null } = {}) {
+// Hàm tạo session mới, xử lý hoàn toàn trong code (không dùng RPC)
+export async function createExamSession({ numQuestions = 10, durationMins = 30, series = null, position = null } = {}) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Chưa đăng nhập');
-  const { data, error } = await supabase.rpc('create_exam_session', {
-    p_user_id: user.id,
-    p_num_questions: numQuestions,
-    p_duration_mins: durationMins,
-    p_topic: topic,
-  });
-  if (error) throw error;
-  return data;
+
+  // Kiểm tra xem đã có session in_progress chưa
+  const { data: existingSession, error: checkError } = await supabase
+    .from('exam_sessions')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('status', 'in_progress')
+    .maybeSingle();
+  if (existingSession) throw new Error('Bạn đang có bài thi chưa hoàn thành');
+
+  // Lấy câu hỏi từ bảng questions_cache với điều kiện series/position
+  let query = supabase
+    .from('questions_cache')
+    .select('id')
+    .eq('is_active', true);
+  if (series) query = query.eq('series', series);
+  if (position) query = query.eq('position', position);
+  
+  const { data: questions, error: questionsError } = await query;
+  if (questionsError) throw questionsError;
+  if (!questions || questions.length < numQuestions) {
+    throw new Error(`Không đủ câu hỏi (cần ${numQuestions}, có ${questions?.length || 0})`);
+  }
+  
+  // Random chọn numQuestions câu
+  const shuffled = [...questions];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const selectedIds = shuffled.slice(0, numQuestions).map(q => q.id);
+
+  // Tạo session mới
+  const { data: session, error: insertError } = await supabase
+    .from('exam_sessions')
+    .insert({
+      user_id: user.id,
+      question_ids: selectedIds,
+      duration_minutes: durationMins,
+      total_questions: numQuestions,
+      status: 'in_progress'
+    })
+    .select()
+    .single();
+
+  if (insertError) throw insertError;
+  return session.id;
 }
 
 export async function getActiveSession() {
@@ -89,7 +129,7 @@ export async function getSessionWithQuestions(sessionId) {
   if (sErr) throw sErr;
   const { data: questions, error: qErr } = await supabase
     .from('questions_cache')
-    .select('id, question, option_a, option_b, option_c, option_d, topic, difficulty')
+    .select('id, question, option_a, option_b, option_c, option_d, topic, difficulty, score, series, position')
     .in('id', session.question_ids);
   if (qErr) throw qErr;
   const ordered = session.question_ids.map(id => questions.find(q => q.id === id)).filter(Boolean);
@@ -116,6 +156,7 @@ export async function getAnswers(sessionId) {
 }
 
 export async function submitExam(sessionId) {
+  // Nếu bạn vẫn dùng RPC submit_exam, giữ nguyên
   const { data, error } = await supabase.rpc('submit_exam', { p_session_id: sessionId });
   if (error) throw error;
   return data;
@@ -143,7 +184,7 @@ export async function getSessionDetail(sessionId) {
   if (sErr) throw sErr;
   const { data: subs, error: subErr } = await supabase
     .from('submissions')
-    .select(`*, questions_cache (question, option_a, option_b, option_c, option_d, correct_answer, topic)`)
+    .select(`*, questions_cache (question, option_a, option_b, option_c, option_d, score, difficulty, series, position)`)
     .eq('session_id', sessionId)
     .order('answered_at');
   if (subErr) throw subErr;
