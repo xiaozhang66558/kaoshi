@@ -211,8 +211,7 @@ export async function getSessionDetail(sessionId) {
 }
 
 export async function getSubmittedSessions() {
-  const client = checkSupabase();
-  const { data, error } = await client
+  const { data, error } = await supabase
     .from('exam_sessions')
     .select('*, profiles(full_name, email, username)')
     .eq('status', 'submitted')
