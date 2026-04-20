@@ -87,6 +87,7 @@ export default function AdminPage() {
     const { session, submissions } = detail;
     const totalPossible = submissions.reduce((sum, s) => sum + (s.questions_cache?.score || 0), 0);
     const currentTotal = submissions.reduce((sum, s) => sum + (s.score || 0), 0);
+    const allGraded = currentTotal === totalPossible;
     
     return (
       <div className={styles.page}>
@@ -96,7 +97,7 @@ export default function AdminPage() {
             <h2>{session.profiles?.full_name || session.user_id}</h2>
             <p>{session.profiles?.email || ''} · Nộp lúc {new Date(session.submitted_at).toLocaleString()}</p>
           </div>
-          <div className={styles.scoreBadge}>Điểm tạm tính: {currentTotal}/{totalPossible}</div>
+          <div className={styles.scoreBadge}>Điểm: {currentTotal}/{totalPossible}</div>
         </div>
         
         <div className={styles.submissionList}>
@@ -152,10 +153,18 @@ export default function AdminPage() {
           })}
         </div>
         
-        {/* Nút Xong */}
+        {/* Nút Xong - quay về tab Tất cả bài thi */}
         <div className={styles.doneSection}>
-          <button className={styles.doneBtn} onClick={() => { setDetail(null); fetchData(); }}>
-            ✅ Xong - Quay lại danh sách
+          <button 
+            className={styles.doneBtn} 
+            onClick={() => { 
+              setDetail(null); 
+              setTab('all');  // Chuyển về tab "Tất cả bài thi"
+              setPage(1);     // Về trang 1
+              fetchData();    // Refresh dữ liệu
+            }}
+          >
+            {allGraded ? '✅ Xong - Quay lại danh sách' : '📝 Lưu và quay lại'}
           </button>
         </div>
       </div>
@@ -184,11 +193,11 @@ export default function AdminPage() {
       </header>
       
       <div className={styles.tabs}>
-        <button className={tab === 'all' ? styles.activeTab : ''} onClick={() => setTab('all')}>
-          Tất cả bài thi
+        <button className={tab === 'all' ? styles.activeTab : ''} onClick={() => { setTab('all'); setPage(1); fetchData(); }}>
+          📋 Tất cả bài thi
         </button>
-        <button className={tab === 'pending' ? styles.activeTab : ''} onClick={() => setTab('pending')}>
-          Chờ chấm điểm
+        <button className={tab === 'pending' ? styles.activeTab : ''} onClick={() => { setTab('pending'); setPage(1); fetchData(); }}>
+          ⏳ Chờ chấm điểm ({submittedSessions.length})
         </button>
       </div>
       
@@ -200,18 +209,48 @@ export default function AdminPage() {
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
-                  <tr><th>Thí sinh</th><th>Email</th><th>Thời gian nộp</th><th>Điểm</th><th>Trạng thái</th><th></th></tr></thead>
+                  <tr>
+                    <th>Thí sinh</th>
+                    <th>Email</th>
+                    <th>Thời gian nộp</th>
+                    <th>Điểm</th>
+                    <th>Trạng thái</th>
+                    <th></th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {sessions.map(s => (
-                    <tr key={s.id}>
-                      <td>{s.profiles?.full_name || s.user_id}</td>
-                      <td>{s.profiles?.email || ''}</td>
-                      <td>{s.submitted_at ? new Date(s.submitted_at).toLocaleString() : 'Chưa nộp'}</td>
-                      <td>{s.score !== null ? `${s.score}/${s.total_questions}` : '—'}</td>
-                      <td>{s.status === 'graded' ? 'Đã chấm' : s.status === 'submitted' ? 'Chờ chấm' : 'Đang thi'}</td>
-                      <td><button className={styles.detailBtn} onClick={() => openDetail(s.id)}>Xem chi tiết →</button></td>
-                    </tr>
-                  ))}
+                  {sessions.map(s => {
+                    const totalScore = s.total_questions;
+                    const achievedScore = s.score || 0;
+                    const isFullyGraded = s.status === 'graded';
+                    
+                    return (
+                      <tr key={s.id}>
+                        <td>{s.profiles?.full_name || s.user_id}</td>
+                        <td>{s.profiles?.email || ''}</td>
+                        <td>{s.submitted_at ? new Date(s.submitted_at).toLocaleString() : 'Chưa nộp'}</td>
+                        <td className={styles.scoreCell}>
+                          <span className={`${styles.scoreValue} ${isFullyGraded ? styles.scoreGraded : styles.scorePending}`}>
+                            {achievedScore}/{totalScore}
+                          </span>
+                        </td>
+                        <td>
+                          {s.status === 'graded' ? (
+                            <span className={styles.badgeGraded}>✅ Đã chấm</span>
+                          ) : s.status === 'submitted' ? (
+                            <span className={styles.badgePending}>⏳ Chờ chấm</span>
+                          ) : (
+                            <span className={styles.badgeProgress}>📝 Đang thi</span>
+                          )}
+                        </td>
+                        <td>
+                          <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
+                            {s.status === 'submitted' ? 'Chấm điểm →' : 'Xem chi tiết →'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -220,21 +259,44 @@ export default function AdminPage() {
           {tab === 'pending' && (
             <div className={styles.tableWrap}>
               <table className={styles.table}>
-                <thead><tr><th>Thí sinh</th><th>Email</th><th>Thời gian nộp</th><th>Hành động</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Thí sinh</th>
+                    <th>Email</th>
+                    <th>Thời gian nộp</th>
+                    <th>Điểm</th>
+                    <th>Hành động</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {submittedSessions.map(s => (
                     <tr key={s.id}>
                       <td>{s.profiles?.full_name || s.user_id}</td>
                       <td>{s.profiles?.email || ''}</td>
                       <td>{new Date(s.submitted_at).toLocaleString()}</td>
-                      <td><button className={styles.detailBtn} onClick={() => openDetail(s.id)}>Chấm điểm →</button></td>
+                      <td className={styles.scoreCell}>
+                        <span className={styles.scorePending}>{(s.score || 0)}/{s.total_questions}</span>
+                      </td>
+                      <td>
+                        <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
+                          Chấm điểm →
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {submittedSessions.length === 0 && (
-                    <tr><td colSpan={4} className={styles.empty}>Chưa có bài thi nào chờ chấm</td></tr>
+                    <tr><td colSpan={5} className={styles.empty}>🎉 Không có bài thi nào chờ chấm!</td></tr>
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+          
+          {tab === 'all' && total > 20 && (
+            <div className={styles.pagination}>
+              <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Trước</button>
+              <span>Trang {page} / {Math.ceil(total / 20)}</span>
+              <button disabled={page >= Math.ceil(total / 20)} onClick={() => setPage(p => p + 1)}>Tiếp →</button>
             </div>
           )}
         </>
