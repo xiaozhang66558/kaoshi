@@ -194,19 +194,32 @@ export async function getAllSessions({ page = 1, limit = 20 } = {}) {
 }
 
 export async function getSessionDetail(sessionId) {
-  const client = checkSupabase();
-  const { data: session, error: sErr } = await client
+  // Lấy session
+  const { data: session, error: sErr } = await supabase
     .from('exam_sessions')
-    .select('*, profiles (full_name, email, username)')
+    .select('*')
     .eq('id', sessionId)
     .single();
   if (sErr) throw sErr;
-  const { data: subs, error: subErr } = await client
+  
+  // Lấy profiles riêng
+  const { data: profile, error: pErr } = await supabase
+    .from('profiles')
+    .select('full_name, email, username')
+    .eq('id', session.user_id)
+    .single();
+  if (!pErr && profile) {
+    session.profiles = profile;
+  }
+  
+  // Lấy submissions
+  const { data: subs, error: subErr } = await supabase
     .from('submissions')
     .select(`*, questions_cache (*)`)
     .eq('session_id', sessionId)
     .order('answered_at');
   if (subErr) throw subErr;
+  
   return { session, submissions: subs };
 }
 
