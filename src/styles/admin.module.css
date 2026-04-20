@@ -410,3 +410,53 @@
 .thumbImage:hover {
   transform: scale(1.05);
 }
+/* Score display in table */
+.scoreCell {
+  text-align: center;
+  font-weight: 500;
+}
+.scoreValue {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+.scoreGraded {
+  background: #dcfce7;
+  color: #166534;
+}
+.scorePending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Badge status */
+.badgeGraded {
+  background: #dcfce7;
+  color: #166534;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+.badgePending {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+.badgeProgress {
+  background: #e5e7eb;
+  color: #4b5563;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+/* Tab counter */
+.tabs button {
+  position: relative;
+}
