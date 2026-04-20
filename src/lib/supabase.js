@@ -181,16 +181,33 @@ export async function submitExam(sessionId) {
 
 // ========== ADMIN ==========
 export async function getAllSessions({ page = 1, limit = 20 } = {}) {
-  const client = checkSupabase();
   const from = (page - 1) * limit;
-  const { data, error, count } = await client
+  
+  // Lấy session trước
+  const { data: sessions, error, count } = await supabase
     .from('exam_sessions')
-    .select(`*, profiles (full_name, email, username)`, { count: 'exact' })
+    .select('*', { count: 'exact' })
     .neq('status', 'in_progress')
     .order('submitted_at', { ascending: false })
     .range(from, from + limit - 1);
   if (error) throw error;
-  return { data, count };
+  
+  // Lấy profiles riêng
+  const userIds = [...new Set(sessions.map(s => s.user_id))];
+  if (userIds.length > 0) {
+    const { data: profiles, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, username')
+      .in('id', userIds);
+    if (!profileError) {
+      const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+      sessions.forEach(s => {
+        s.profiles = profileMap[s.user_id] || null;
+      });
+    }
+  }
+  
+  return { data: sessions, count };
 }
 
 export async function getSessionDetail(sessionId) {
