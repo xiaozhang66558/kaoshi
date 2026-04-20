@@ -15,6 +15,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [tab, setTab] = useState('all');
+  const [lightboxImage, setLightboxImage] = useState(null);
+
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -82,7 +84,7 @@ export default function AdminPage() {
     }
   }
 
-  // Chi tiết bài thi với 2 nút Đúng/Sai
+  {/* Chi tiết bài thi với 2 nút Đúng/Sai */}
   if (detail && !detail.loading) {
     const { session, submissions } = detail;
     const totalPossible = submissions.reduce((sum, s) => sum + (s.questions_cache?.score || 0), 0);
@@ -97,7 +99,7 @@ export default function AdminPage() {
             <h2>{session.profiles?.full_name || session.user_id}</h2>
             <p>{session.profiles?.email || ''} · Nộp lúc {new Date(session.submitted_at).toLocaleString()}</p>
           </div>
-          <div className={styles.scoreBadge}>Điểm: {currentTotal}/{totalPossible}</div>
+          <div className={styles.scoreBadge}>Điểm tạm tính: {currentTotal}/{totalPossible}</div>
         </div>
         
         <div className={styles.submissionList}>
@@ -120,9 +122,14 @@ export default function AdminPage() {
                     <strong>Ảnh đính kèm:</strong>
                     <div className={styles.imagesContainer}>
                       {sub.image_urls.map((url, i) => (
-                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                          <img src={url} alt={`answer ${i+1}`} className={styles.thumbImage} />
-                        </a>
+                        <img 
+                          key={i} 
+                          src={url} 
+                          alt={`answer ${i+1}`} 
+                          className={styles.thumbImage} 
+                          onClick={() => setLightboxImage(url)}
+                          style={{ cursor: 'pointer' }}
+                        />
                       ))}
                     </div>
                   </div>
@@ -159,14 +166,22 @@ export default function AdminPage() {
             className={styles.doneBtn} 
             onClick={() => { 
               setDetail(null); 
-              setTab('all');  // Chuyển về tab "Tất cả bài thi"
-              setPage(1);     // Về trang 1
-              fetchData();    // Refresh dữ liệu
+              setTab('all');
+              setPage(1);
+              fetchData();
             }}
           >
             {allGraded ? '✅ Xong - Quay lại danh sách' : '📝 Lưu và quay lại'}
           </button>
         </div>
+  
+        {/* ===== MODAL XEM ẢNH TO ===== */}
+        {lightboxImage && (
+          <div className={styles.lightbox} onClick={() => setLightboxImage(null)}>
+            <span className={styles.lightboxClose}>&times;</span>
+            <img className={styles.lightboxImage} src={lightboxImage} alt="Ảnh to" />
+          </div>
+        )}
       </div>
     );
   }
