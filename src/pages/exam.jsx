@@ -230,18 +230,19 @@ export default function ExamPage() {
             </select>
           </div>
           <button className={styles.startBtn} onClick={handleStart}>Bắt đầu làm bài</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (phase === 'result') {
-    return (
-      <div className={styles.center}>
-        <div className={styles.resultCard}>
-          <h2>📝 Bài thi đã được nộp!</h2>
-          <p>Kết quả sẽ được admin chấm điểm sau.</p>
-          <button className={styles.startBtn} onClick={() => router.replace('/')}>Về trang chủ</button>
+          
+          {/* Hai nút mới */}
+          <div className={styles.buttonGroup}>
+            <button className={styles.backBtn} onClick={() => router.push('/')}>
+              🏠 Quay về
+            </button>
+            <button className={styles.logoutBtn} onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/');
+            }}>
+              🚪 Đăng xuất
+            </button>
+          </div>
         </div>
       </div>
     );
