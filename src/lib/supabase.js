@@ -3,36 +3,50 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+// Kiểm tra và log lỗi nhưng không throw (để build không crash)
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  console.error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Tạo client chỉ khi có đủ env
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
+
+// Helper kiểm tra supabase có sẵn sàng không
+function checkSupabase() {
+  if (!supabase) {
+    throw new Error('Supabase client not initialized. Check environment variables.');
+  }
+  return supabase;
+}
 
 // ========== AUTH ==========
 export async function signUp(username, password, fullName) {
+  const client = checkSupabase();
   const random = Math.random().toString(36).substring(2, 8);
   const email = `${username}_${random}@local.app`;
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await client.auth.signUp({
     email,
     password,
     options: { data: { full_name: fullName, username: username } },
   });
   if (error) throw error;
   if (data.user) {
-    await supabase.from('profiles').update({ username: username }).eq('id', data.user.id);
+    await client.from('profiles').update({ username: username }).eq('id', data.user.id);
   }
   return data;
 }
 
 export async function signInWithUsername(username, password) {
-  const { data: profile, error: profileError } = await supabase
+  const client = checkSupabase();
+  const { data: profile, error: profileError } = await client
     .from('profiles')
     .select('email')
     .eq('username', username)
     .single();
   if (profileError || !profile) throw new Error('Tên đăng nhập không tồn tại');
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await client.auth.signInWithPassword({
     email: profile.email,
     password: password,
   });
@@ -41,11 +55,13 @@ export async function signInWithUsername(username, password) {
 }
 
 export async function signOut() {
+  if (!supabase) return;
   await supabase.auth.signOut();
 }
 
 export async function getProfile(userId) {
-  const { data, error } = await supabase
+  const client = checkSupabase();
+  const { data, error } = await client
     .from('profiles')
     .select('*')
     .eq('id', userId)
@@ -55,13 +71,12 @@ export async function getProfile(userId) {
 }
 
 // ========== EXAM ==========
-// Hàm tạo session mới, xử lý hoàn toàn trong code (không dùng RPC)
 export async function createExamSession({ numQuestions = 10, durationMins = 30, series = null, position = null } = {}) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const client = checkSupabase();
+  const { data: { user } } = await client.auth.getUser();
   if (!user) throw new Error('Chưa đăng nhập');
 
-  // Kiểm tra đã có session in_progress chưa
-  const { data: existing, error: checkErr } = await supabase
+  const { data: existing, error: checkErr } = await client
     .from('exam_sessions')
     .select('id')
     .eq('user_id', user.id)
@@ -69,8 +84,7 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
     .maybeSingle();
   if (existing) throw new Error('Bạn đang có bài thi chưa hoàn thành');
 
-  // Lấy danh sách câu hỏi theo series/position
-  let query = supabase.from('questions_cache').select('id').eq('is_active', true);
+  let query = client.from('questions_cache').select('id').eq('is_active', true);
   if (series) query = query.eq('series', series);
   if (position) query = query.eq('position', position);
   
@@ -80,7 +94,6 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
     throw new Error(`Không đủ câu hỏi (cần ${numQuestions}, có ${questions?.length || 0})`);
   }
   
-  // Random chọn numQuestions câu
   const shuffled = [...questions];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -88,8 +101,7 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
   }
   const selectedIds = shuffled.slice(0, numQuestions).map(q => q.id);
 
-  // Tạo session mới
-  const { data: session, error: insertErr } = await supabase
+  const { data: session, error: insertErr } = await client
     .from('exam_sessions')
     .insert({
       user_id: user.id,
@@ -106,7 +118,8 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
 }
 
 export async function getActiveSession() {
-  const { data, error } = await supabase
+  const client = checkSupabase();
+  const { data, error } = await client
     .from('exam_sessions')
     .select('*')
     .eq('status', 'in_progress')
@@ -118,51 +131,59 @@ export async function getActiveSession() {
 }
 
 export async function getSessionWithQuestions(sessionId) {
-  const { data: session, error: sErr } = await supabase
+  const client = checkSupabase();
+  const { data: session, error: sErr } = await client
     .from('exam_sessions')
     .select('*')
     .eq('id', sessionId)
     .single();
   if (sErr) throw sErr;
-  const { data: questions, error: qErr } = await supabase
+  const { data: questions, error: qErr } = await client
     .from('questions_cache')
-    .select('id, question, option_a, option_b, option_c, option_d, topic, difficulty, score, series, position')
+    .select('*')
     .in('id', session.question_ids);
   if (qErr) throw qErr;
   const ordered = session.question_ids.map(id => questions.find(q => q.id === id)).filter(Boolean);
   return { session, questions: ordered };
 }
 
-export async function saveAnswer(sessionId, questionId, userAnswer) {
-  const { error } = await supabase
+export async function saveAnswer(sessionId, questionId, userAnswer, imageUrls = []) {
+  const client = checkSupabase();
+  const { error } = await client
     .from('submissions')
     .upsert(
-      { session_id: sessionId, question_id: questionId, user_answer: userAnswer },
+      { session_id: sessionId, question_id: questionId, user_answer: userAnswer, image_urls: imageUrls },
       { onConflict: 'session_id,question_id' }
     );
   if (error) throw error;
 }
 
 export async function getAnswers(sessionId) {
-  const { data, error } = await supabase
+  const client = checkSupabase();
+  const { data, error } = await client
     .from('submissions')
-    .select('question_id, user_answer')
+    .select('question_id, user_answer, image_urls')
     .eq('session_id', sessionId);
   if (error) throw error;
-  return Object.fromEntries(data.map(s => [s.question_id, s.user_answer]));
+  const result = {};
+  data.forEach(s => {
+    result[s.question_id] = { text: s.user_answer || '', images: s.image_urls || [] };
+  });
+  return result;
 }
 
 export async function submitExam(sessionId) {
-  // Nếu bạn vẫn dùng RPC submit_exam, giữ nguyên
-  const { data, error } = await supabase.rpc('submit_exam', { p_session_id: sessionId });
+  const client = checkSupabase();
+  const { data, error } = await client.rpc('submit_exam', { p_session_id: sessionId });
   if (error) throw error;
   return data;
 }
 
 // ========== ADMIN ==========
 export async function getAllSessions({ page = 1, limit = 20 } = {}) {
+  const client = checkSupabase();
   const from = (page - 1) * limit;
-  const { data, error, count } = await supabase
+  const { data, error, count } = await client
     .from('exam_sessions')
     .select(`*, profiles (full_name, email, username)`, { count: 'exact' })
     .neq('status', 'in_progress')
@@ -173,15 +194,16 @@ export async function getAllSessions({ page = 1, limit = 20 } = {}) {
 }
 
 export async function getSessionDetail(sessionId) {
-  const { data: session, error: sErr } = await supabase
+  const client = checkSupabase();
+  const { data: session, error: sErr } = await client
     .from('exam_sessions')
     .select('*, profiles (full_name, email, username)')
     .eq('id', sessionId)
     .single();
   if (sErr) throw sErr;
-  const { data: subs, error: subErr } = await supabase
+  const { data: subs, error: subErr } = await client
     .from('submissions')
-    .select(`*, questions_cache (question, option_a, option_b, option_c, option_d, score, difficulty, series, position)`)
+    .select(`*, questions_cache (*)`)
     .eq('session_id', sessionId)
     .order('answered_at');
   if (subErr) throw subErr;
@@ -189,7 +211,8 @@ export async function getSessionDetail(sessionId) {
 }
 
 export async function getSubmittedSessions() {
-  const { data, error } = await supabase
+  const client = checkSupabase();
+  const { data, error } = await client
     .from('exam_sessions')
     .select('*, profiles(full_name, email, username)')
     .eq('status', 'submitted')
@@ -199,7 +222,8 @@ export async function getSubmittedSessions() {
 }
 
 export async function gradeSubmission(submissionId, score) {
-  const { error } = await supabase.rpc('grade_submission', {
+  const client = checkSupabase();
+  const { error } = await client.rpc('grade_submission', {
     p_submission_id: submissionId,
     p_score: score,
   });
