@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { supabase, signUp, signInWithUsername, getProfile } from '../lib/supabase';
-import styles from '../styles/auth.module.css';
+import { supabase, getProfile, getAllSessions, getSessionDetail, getSubmittedSessions, gradeSubmission } from '../../lib/supabase';
+import styles from '../../styles/admin.module.css';
 
 const SYNC_URL = '/.netlify/functions/sync-questions';
 
@@ -82,7 +82,7 @@ export default function AdminPage() {
     }
   }
 
-  // Chi tiết bài thi với 2 nút Đúng/Sai và nút Xong
+  // Chi tiết bài thi với 2 nút Đúng/Sai
   if (detail && !detail.loading) {
     const { session, submissions } = detail;
     const totalPossible = submissions.reduce((sum, s) => sum + (s.questions_cache?.score || 0), 0);
