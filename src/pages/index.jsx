@@ -55,14 +55,11 @@ export default function AdminPage() {
   }
 
   async function handleGrade(submissionId, isCorrect) {
-    // Tìm submission trong detail.submissions
     const submission = detail.submissions.find(s => s.id === submissionId);
     const maxScore = submission?.questions_cache?.score || 0;
     const scoreToSet = isCorrect ? maxScore : 0;
     
     await gradeSubmission(submissionId, scoreToSet);
-    
-    // Cập nhật lại detail
     const updated = await getSessionDetail(detail.session.id);
     setDetail(updated);
   }
@@ -85,7 +82,7 @@ export default function AdminPage() {
     }
   }
 
-  // Chi tiết bài thi
+  // Chi tiết bài thi với 2 nút Đúng/Sai
   if (detail && !detail.loading) {
     const { session, submissions } = detail;
     const totalPossible = submissions.reduce((sum, s) => sum + (s.questions_cache?.score || 0), 0);
@@ -105,6 +102,9 @@ export default function AdminPage() {
         <div className={styles.submissionList}>
           {submissions.map((sub, idx) => {
             const q = sub.questions_cache;
+            const isCorrectGraded = sub.score === (q?.score || 0);
+            const isWrongGraded = sub.score === 0 && sub.graded_at;
+            
             return (
               <div key={sub.id} className={styles.subCard}>
                 <div className={styles.subHeader}>
@@ -114,18 +114,30 @@ export default function AdminPage() {
                   <strong>Câu trả lời của thí sinh:</strong>
                   <p className={styles.answerText}>{sub.user_answer || '(chưa có câu trả lời)'}</p>
                 </div>
+                {sub.image_urls && sub.image_urls.length > 0 && (
+                  <div className={styles.answerImages}>
+                    <strong>Ảnh đính kèm:</strong>
+                    <div className={styles.imagesContainer}>
+                      {sub.image_urls.map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                          <img src={url} alt={`answer ${i+1}`} className={styles.thumbImage} />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 {/* 2 nút Đúng/Sai */}
                 <div className={styles.grading}>
                   <div className={styles.gradingButtons}>
                     <button 
-                      className={`${styles.gradeBtn} ${sub.score === (q?.score || 0) ? styles.correctActive : ''}`}
+                      className={`${styles.gradeBtn} ${isCorrectGraded ? styles.correctActive : ''}`}
                       onClick={() => handleGrade(sub.id, true)}
                     >
                       ✓ Đúng
                     </button>
                     <button 
-                      className={`${styles.gradeBtn} ${sub.score === 0 && sub.graded_at ? styles.wrongActive : ''}`}
+                      className={`${styles.gradeBtn} ${isWrongGraded ? styles.wrongActive : ''}`}
                       onClick={() => handleGrade(sub.id, false)}
                     >
                       ✗ Sai
@@ -142,13 +154,7 @@ export default function AdminPage() {
         
         {/* Nút Xong */}
         <div className={styles.doneSection}>
-          <button 
-            className={styles.doneBtn}
-            onClick={() => {
-              setDetail(null);
-              fetchData();
-            }}
-          >
+          <button className={styles.doneBtn} onClick={() => { setDetail(null); fetchData(); }}>
             ✅ Xong - Quay lại danh sách
           </button>
         </div>
@@ -194,15 +200,7 @@ export default function AdminPage() {
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
-                  <tr>
-                    <th>Thí sinh</th>
-                    <th>Email</th>
-                    <th>Thời gian nộp</th>
-                    <th>Điểm</th>
-                    <th>Trạng thái</th>
-                    <th></th>
-                  </tr>
-                </thead>
+                  <tr><th>Thí sinh</th><th>Email</th><th>Thời gian nộp</th><th>Điểm</th><th>Trạng thái</th><th></th></tr></thead>
                 <tbody>
                   {sessions.map(s => (
                     <tr key={s.id}>
@@ -210,15 +208,8 @@ export default function AdminPage() {
                       <td>{s.profiles?.email || ''}</td>
                       <td>{s.submitted_at ? new Date(s.submitted_at).toLocaleString() : 'Chưa nộp'}</td>
                       <td>{s.score !== null ? `${s.score}/${s.total_questions}` : '—'}</td>
-                      <td>
-                        {s.status === 'graded' ? 'Đã chấm' : 
-                         s.status === 'submitted' ? 'Chờ chấm' : 'Đang thi'}
-                      </td>
-                      <td>
-                        <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
-                          Xem chi tiết →
-                        </button>
-                      </td>
+                      <td>{s.status === 'graded' ? 'Đã chấm' : s.status === 'submitted' ? 'Chờ chấm' : 'Đang thi'}</td>
+                      <td><button className={styles.detailBtn} onClick={() => openDetail(s.id)}>Xem chi tiết →</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -229,25 +220,14 @@ export default function AdminPage() {
           {tab === 'pending' && (
             <div className={styles.tableWrap}>
               <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Thí sinh</th>
-                    <th>Email</th>
-                    <th>Thời gian nộp</th>
-                    <th>Hành động</th>
-                  </tr>
-                </thead>
+                <thead><tr><th>Thí sinh</th><th>Email</th><th>Thời gian nộp</th><th>Hành động</th></tr></thead>
                 <tbody>
                   {submittedSessions.map(s => (
                     <tr key={s.id}>
                       <td>{s.profiles?.full_name || s.user_id}</td>
                       <td>{s.profiles?.email || ''}</td>
                       <td>{new Date(s.submitted_at).toLocaleString()}</td>
-                      <td>
-                        <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
-                          Chấm điểm →
-                        </button>
-                      </td>
+                      <td><button className={styles.detailBtn} onClick={() => openDetail(s.id)}>Chấm điểm →</button></td>
                     </tr>
                   ))}
                   {submittedSessions.length === 0 && (
