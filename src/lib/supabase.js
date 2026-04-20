@@ -213,11 +213,27 @@ export async function getSessionDetail(sessionId) {
 export async function getSubmittedSessions() {
   const { data, error } = await supabase
     .from('exam_sessions')
-    .select('*, profiles(full_name, email, username)')
+    .select('*')
     .eq('status', 'submitted')
     .order('submitted_at', { ascending: false });
   if (error) throw error;
-  return data;
+  
+  // Lấy thông tin profiles cho từng session
+  const userIds = [...new Set(data.map(s => s.user_id))];
+  const { data: profiles, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, username')
+    .in('id', userIds);
+  if (profileError) throw profileError;
+  
+  // Ghép dữ liệu
+  const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+  const result = data.map(session => ({
+    ...session,
+    profiles: profileMap[session.user_id] || null
+  }));
+  
+  return result;
 }
 
 export async function gradeSubmission(submissionId, score) {
