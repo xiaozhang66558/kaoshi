@@ -5,9 +5,9 @@ import styles from '../styles/auth.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState('login');
-  const [email, setEmail] = useState('');
-  const [password, setPass] = useState('');
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,19 +21,32 @@ export default function LoginPage() {
     });
   }, []);
 
+  // Hàm tạo email ảo từ username
+  const generateEmail = (username) => {
+    // Chỉ cho phép chữ cái, số, dấu gạch dưới và dấu gạch ngang
+    const cleanUsername = username.trim().replace(/[^a-zA-Z0-9_-]/g, '');
+    return `${cleanUsername}@local.app`;
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
     try {
       if (mode === 'login') {
-        const { user } = await signIn(email, password);
+        // Đăng nhập: tạo email ảo từ username và đăng nhập
+        const email = generateEmail(username);
+        await signIn(email, password);
+        const { data: { user } } = await supabase.auth.getUser();
         const profile = await getProfile(user.id);
         if (profile?.role === 'admin') router.replace('/admin');
         else router.replace('/exam');
       } else {
+        // Đăng ký: tạo email ảo từ username và đăng ký
+        const email = generateEmail(username);
         await signUp(email, password, name);
-        alert('Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.');
+        alert('Đăng ký thành công! Bạn có thể đăng nhập ngay.');
         setMode('login');
       }
     } catch (err) {
@@ -57,32 +70,73 @@ export default function LoginPage() {
         </div>
         <h2 className={styles.title}>{mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}</h2>
         <p className={styles.subtitle}>
-          {mode === 'login' ? 'Nhập thông tin để vào hệ thống thi' : 'Điền thông tin để tạo tài khoản thí sinh'}
+          {mode === 'login' 
+            ? 'Nhập tên đăng nhập và mật khẩu' 
+            : 'Điền thông tin để tạo tài khoản'}
         </p>
         <form onSubmit={handleSubmit} className={styles.form}>
+          <div className={styles.field}>
+            <label className={styles.label}>Tên đăng nhập</label>
+            <input
+              className={styles.input}
+              type="text"
+              value={username}
+              onChange={(e) => {
+                // Chỉ cho phép chữ cái, số, dấu gạch dưới và dấu gạch ngang
+                const value = e.target.value.replace(/[^a-zA-Z0-9_-]/g, '');
+                setUsername(value);
+              }}
+              placeholder="Ví dụ: nguyenvana123"
+              required
+            />
+          </div>
+
           {mode === 'register' && (
             <div className={styles.field}>
               <label className={styles.label}>Họ và tên</label>
-              <input className={styles.input} type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Nguyễn Văn A" required />
+              <input
+                className={styles.input}
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Nguyễn Văn A"
+                required
+              />
             </div>
           )}
-          <div className={styles.field}>
-            <label className={styles.label}>Email</label>
-            <input className={styles.input} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="ten@email.com" required autoComplete="email" />
-          </div>
+
           <div className={styles.field}>
             <label className={styles.label}>Mật khẩu</label>
-            <input className={styles.input} type="password" value={password} onChange={e => setPass(e.target.value)} placeholder="••••••••" required autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={6} />
+            <input
+              className={styles.input}
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              minLength={6}
+            />
           </div>
+
           {error && <div className={styles.error}>{error}</div>}
+          
           <button className={styles.btn} type="submit" disabled={loading}>
-            {loading ? <span className={styles.spinner} /> : mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
+            {loading 
+              ? <span className={styles.spinner} /> 
+              : mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}
           </button>
         </form>
+
         <p className={styles.switchMode}>
           {mode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
           {' '}
-          <button className={styles.link} onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>
+          <button 
+            className={styles.link} 
+            onClick={() => { 
+              setMode(mode === 'login' ? 'register' : 'login'); 
+              setError('');
+            }}
+          >
             {mode === 'login' ? 'Đăng ký ngay' : 'Đăng nhập'}
           </button>
         </p>
