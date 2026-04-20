@@ -1,6 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const SHEET_RANGE = 'Sheet1!A2:J1000'; // Giả sử cột A: question, B: option_a, C: option_b, D: option_c, E: option_d, F: difficulty, G: topic, H: is_active (bỏ correct_answer)
+// Đọc từ cột A đến E, bắt đầu từ dòng 2 (bỏ qua header)
+const SHEET_RANGE = 'Sheet1!A2:E1000';
 
 exports.handler = async (event) => {
   const headers = {
@@ -28,18 +29,21 @@ exports.handler = async (event) => {
     const rows = sheetsData.values || [];
 
     const questions = rows
-      .filter(row => row.length >= 5 && row[0] && row[1]) // cần ít nhất câu hỏi và option_a
-      .map(row => ({
-        sheet_row_id:   String(row[0]).trim(),
-        question:       String(row[1]).trim(),
-        option_a:       String(row[2] || '').trim(),
-        option_b:       String(row[3] || '').trim(),
-        option_c:       String(row[4] || '').trim(),
-        option_d:       String(row[5] || '').trim(),
-        difficulty:     ['easy','medium','hard'].includes(String(row[6]).trim().toLowerCase()) ? String(row[6]).trim().toLowerCase() : 'medium',
-        topic:          String(row[7] || '').trim() || null,
-        is_active:      String(row[8] || 'true').trim().toLowerCase() !== 'false',
-        synced_at:      new Date().toISOString(),
+      .filter(row => row.length >= 3 && row[2]) // cần có câu hỏi (cột C)
+      .map((row, idx) => ({
+        sheet_row_id: `q_${Date.now()}_${idx}`, // tự tạo ID duy nhất, tránh trùng lặp
+        series:       String(row[0] || '').trim(),      // cột A
+        position:     String(row[1] || '').trim(),      // cột B
+        question:     String(row[2] || '').trim(),      // cột C
+        score:        parseInt(row[3]) || 10,           // cột D (mặc định 10 nếu không có)
+        difficulty:   parseInt(row[4]) || 1,            // cột E (mặc định 1 nếu không có)
+        is_active:    true,
+        synced_at:    new Date().toISOString(),
+        // Các cột option để trống vì dùng tự luận
+        option_a: '',
+        option_b: '',
+        option_c: '',
+        option_d: '',
       }));
 
     if (questions.length === 0) {
@@ -51,16 +55,19 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    const { error } = await supabase
+    // Xóa dữ liệu cũ trước khi insert mới (tránh lỗi trùng lặp)
+    const { error: deleteError } = await supabase
       .from('questions_cache')
-      .upsert(questions, { onConflict: 'sheet_row_id', returning: 'minimal' });
-    if (error) throw error;
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // xóa tất cả
 
-    const activeIds = questions.map(q => q.sheet_row_id);
-    await supabase
+    if (deleteError) throw deleteError;
+
+    const { error: insertError } = await supabase
       .from('questions_cache')
-      .update({ is_active: false })
-      .not('sheet_row_id', 'in', `(${activeIds.map(id => `"${id}"`).join(',')})`);
+      .insert(questions);
+
+    if (insertError) throw insertError;
 
     return {
       statusCode: 200,
