@@ -34,9 +34,10 @@ export default function ExamPage() {
 
   // Hàm lấy câu hỏi theo ngôn ngữ hiện tại
   const getQuestionByLanguage = (q) => {
+    if (!q) return '⚠️ Câu hỏi không tồn tại';
     if (language === 'en') return q.question_en || q.question;
     if (language === 'zh') return q.question_zh || q.question;
-    return q.question_vi || q.question; // mặc định tiếng Việt
+    return q.question_vi || q.question;
   };
 
   useEffect(() => {
@@ -122,18 +123,19 @@ export default function ExamPage() {
   }
 
   const handleAnswer = useCallback(async (questionId, text) => {
+    console.log('🔵 handleAnswer called:', { questionId, text });
     setSaving(true);
     try {
       const currentImages = imagesCache.current[questionId] || answers[questionId]?.images || [];
-      
+      console.log('🟡 Saving to DB:', { sessionId: session.id, questionId, text });
+      await saveAnswer(session.id, questionId, text, currentImages);
+      console.log('🟢 Save success');
       setAnswers(prev => ({
         ...prev,
         [questionId]: { text, images: currentImages }
       }));
-      
-      await saveAnswer(session.id, questionId, text, currentImages);
     } catch (e) { 
-      console.error(e); 
+      console.error('🔴 Save error:', e); 
     } finally { 
       setSaving(false); 
     }
@@ -232,7 +234,6 @@ export default function ExamPage() {
   const answeredCount = Object.keys(answers).filter(id => answers[id]?.text?.trim()).length;
   const q = questions[current];
 
-  // Helper để lấy tên độ khó theo ngôn ngữ
   const getDifficultyText = (difficulty) => {
     if (difficulty === 'easy') return t('easy');
     if (difficulty === 'medium') return t('medium');
