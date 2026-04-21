@@ -35,6 +35,18 @@ export default function AdminPage() {
   const [uploadingFeedback, setUploadingFeedback] = useState(false);
   const [activeSubmissionId, setActiveSubmissionId] = useState(null);
 
+  // Hàm format thời gian theo ngôn ngữ
+  const formatDuration = (minutes, seconds) => {
+    const currentLang = typeof window !== 'undefined' ? localStorage.getItem('language') || 'vi' : 'vi';
+    if (currentLang === 'vi') {
+      return `${minutes} phút ${seconds} giây`;
+    } else if (currentLang === 'zh') {
+      return `${minutes}分${seconds}秒`;
+    } else {
+      return `${minutes} min ${seconds} sec`;
+    }
+  };
+
   async function loadFilterOptions() {
     try {
       const { data: seriesData } = await supabase
@@ -576,7 +588,7 @@ export default function AdminPage() {
                 <tbody>
                   {sessions.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className={styles.empty}>{t('no_exams')}</td>
+                      <td colSpan={9} className={styles.empty}>{t('no_exams')}<\/td>
                     </tr>
                   ) : (
                     sessions.map(s => {
@@ -586,7 +598,7 @@ export default function AdminPage() {
                         const diffMs = new Date(s.submitted_at) - new Date(s.started_at);
                         const diffMinutes = Math.floor(diffMs / 60000);
                         const diffSeconds = Math.floor((diffMs % 60000) / 1000);
-                        examDuration = `${diffMinutes} phút ${diffSeconds} giây`;
+                        examDuration = formatDuration(diffMinutes, diffSeconds);
                       }
                       
                       return (
@@ -675,7 +687,7 @@ export default function AdminPage() {
                 <tbody>
                   {submittedSessions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className={styles.empty}>{t('no_pending')}</td>
+                      <td colSpan={7} className={styles.empty}>{t('no_pending')}<\/td>
                     </tr>
                   ) : (
                     submittedSessions.map(s => {
@@ -684,7 +696,7 @@ export default function AdminPage() {
                         const diffMs = new Date(s.submitted_at) - new Date(s.started_at);
                         const diffMinutes = Math.floor(diffMs / 60000);
                         const diffSeconds = Math.floor((diffMs % 60000) / 1000);
-                        examDuration = `${diffMinutes} phút ${diffSeconds} giây`;
+                        examDuration = formatDuration(diffMinutes, diffSeconds);
                       }
                       return (
                         <tr key={s.id}>
