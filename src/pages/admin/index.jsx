@@ -575,7 +575,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {sessions.length === 0 ? (
-                    <tr><td colSpan={9} className={styles.empty}>{t('no_exams')}</td></tr>
+                    <td><td colSpan={9} className={styles.empty}>{t('no_exams')}<\/td><\/tr>
                   ) : (
                     sessions.map(s => {
                       const isFullyGraded = s.status === 'graded';
@@ -586,16 +586,27 @@ export default function AdminPage() {
                         const diffSeconds = Math.floor((diffMs % 60000) / 1000);
                         examDuration = `${diffMinutes} phút ${diffSeconds} giây`;
                       }
+                      
                       return (
                         <tr key={s.id}>
                           <td className={styles.nameCell}>
                             <strong>{s.profiles?.full_name || s.user_id}</strong>
-                            {s.profiles?.username && <span className={styles.username}>({s.profiles.username})</span>}
+                            {s.profiles?.username && (
+                              <span className={styles.username}>({s.profiles.username})</span>
+                            )}
                           </td>
-                          <td className={styles.centerCell}><span className={styles.seriesBadge}>{s.series || '—'}</span></td>
-                          <td className={styles.centerCell}><span className={styles.positionBadge}>{s.position || '—'}</span></td>
-                          <td className={styles.timeCell}>{s.submitted_at ? new Date(s.submitted_at).toLocaleString() : t('in_progress')}</td>
-                          <td className={styles.timeCell}>{examDuration}</td>
+                          <td className={styles.centerCell}>
+                            <span className={styles.seriesBadge}>{s.series || '—'}</span>
+                          </td>
+                          <td className={styles.centerCell}>
+                            <span className={styles.positionBadge}>{s.position || '—'}</span>
+                          </td>
+                          <td className={styles.timeCell}>
+                            {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : t('in_progress')}
+                          </td>
+                          <td className={styles.timeCell}>
+                            {examDuration}
+                          </td>
                           <td className={styles.centerCell}>
                             <span className={`${styles.scorePill} ${isFullyGraded ? styles.pass : styles.fail}`}>
                               {s.score || 0}/100
@@ -662,7 +673,7 @@ export default function AdminPage() {
                 <tbody>
                   {submittedSessions.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className={styles.empty}>{t('no_pending')}</td>
+                      <td colSpan={7} className={styles.empty}>{t('no_pending')}<\/td>
                     </tr>
                   ) : (
                     submittedSessions.map(s => {
@@ -688,7 +699,7 @@ export default function AdminPage() {
                               {t('grade')} →
                             </button>
                           </td>
-                        </table>
+                        </tr>
                       );
                     })
                   )}
