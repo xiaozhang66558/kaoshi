@@ -597,7 +597,7 @@ export default function AdminPage() {
                             </span>
                           </td>
                           <td className={styles.centerCell}>
-                            {s.status === 'graded' ? (
+                            {s.score > 0 || s.status === 'graded' ? (
                               <span className={styles.badgeGraded}>✅ {t('graded')}</span>
                             ) : s.status === 'submitted' ? (
                               <span className={styles.badgePending}>⏳ {t('waiting')}</span>
