@@ -28,38 +28,45 @@ export async function signUp(username, password, fullName) {
 export async function signInWithUsername(username, password) {
   console.log('Đang đăng nhập với username:', username);
   
-  // Tìm profile theo username - dùng maybeSingle để không bị lỗi 0 rows
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, email, username, role')
-    .eq('username', username)
-    .maybeSingle();
-  
-  if (profileError) {
-    console.error('Lỗi tìm profile:', profileError);
-    throw new Error('Lỗi hệ thống: ' + profileError.message);
+  // Kiểm tra supabase có hoạt động không
+  if (!supabase) {
+    throw new Error('Supabase chưa được khởi tạo');
   }
   
-  if (!profile) {
+  // Thử query bằng eq và select đơn giản
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('username', username);
+  
+  console.log('Kết quả query:', { data, error });
+  
+  if (error) {
+    console.error('Lỗi query:', error);
+    throw new Error('Lỗi kết nối database: ' + error.message);
+  }
+  
+  if (!data || data.length === 0) {
     console.log('Không tìm thấy username:', username);
     throw new Error('Tên đăng nhập không tồn tại');
   }
   
+  const profile = data[0];
   console.log('Tìm thấy profile:', profile);
   
   // Đăng nhập bằng email
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email: profile.email,
     password: password,
   });
   
-  if (error) {
-    console.error('Lỗi đăng nhập:', error);
+  if (authError) {
+    console.error('Lỗi đăng nhập:', authError);
     throw new Error('Sai mật khẩu');
   }
   
-  console.log('Đăng nhập thành công:', data.user.email);
-  return data;
+  console.log('Đăng nhập thành công!');
+  return authData;
 }
 
 // ========== EXAM ==========
