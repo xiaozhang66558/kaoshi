@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase, getProfile } from '../lib/supabase';
+import { useLanguage } from '../contexts/LanguageContext';
 import styles from '../styles/history.module.css';
 
 export default function HistoryPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -90,9 +92,15 @@ export default function HistoryPage() {
     }
   };
 
-  // Kiểm tra câu trả lời đúng hay sai (dựa trên score)
   const isAnswerCorrect = (answer, maxScore) => {
     return answer?.score === maxScore;
+  };
+
+  const getStatusText = (status, score, totalScore) => {
+    if (status === 'graded') {
+      return `${score}/${totalScore} ${t('total_score')}`;
+    }
+    return t('waiting_score');
   };
 
   return (
@@ -100,15 +108,15 @@ export default function HistoryPage() {
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <button className={styles.backBtn} onClick={() => router.push('/exam')}>
-            ← Quay lại
+            ← {t('back')}
           </button>
-          <h1 className={styles.title}>Lịch sử bài thi</h1>
+          <h1 className={styles.title}>{t('exam_history')}</h1>
         </div>
         <button className={styles.logoutBtn} onClick={async () => {
           await supabase.auth.signOut();
           router.replace('/');
         }}>
-          Đăng xuất
+          {t('logout')}
         </button>
       </header>
 
@@ -117,9 +125,9 @@ export default function HistoryPage() {
       ) : sessions.length === 0 ? (
         <div className={styles.emptyState}>
           <span className={styles.emptyIcon}>📭</span>
-          <p>Bạn chưa có bài thi nào</p>
+          <p>{t('no_exams')}</p>
           <button className={styles.startBtn} onClick={() => router.push('/exam')}>
-            Bắt đầu làm bài
+            {t('start_exam')}
           </button>
         </div>
       ) : (
@@ -133,14 +141,14 @@ export default function HistoryPage() {
               <div key={session.id} className={styles.historyCard}>
                 <div className={styles.cardHeader} onClick={() => toggleSessionDetail(session.id)}>
                   <div className={styles.cardInfo}>
-                    <span className={styles.cardNumber}>Bài thi #{idx + 1}</span>
+                    <span className={styles.cardNumber}>{t('exam_no', { number: idx + 1 })}</span>
                     <span className={styles.cardDate}>
                       {new Date(session.submitted_at).toLocaleString()}
                     </span>
                   </div>
                   <div className={styles.cardStats}>
                     <span className={`${styles.score} ${isGraded ? styles.graded : styles.pending}`}>
-                      {isGraded ? `${achievedScore}/${totalScore} điểm` : 'Chờ chấm điểm'}
+                      {getStatusText(session.status, achievedScore, totalScore)}
                     </span>
                     <span className={styles.expandIcon}>
                       {selectedSession === session.id ? '▲' : '▼'}
@@ -151,9 +159,9 @@ export default function HistoryPage() {
                 {selectedSession === session.id && (
                   <div className={styles.cardDetail}>
                     <div className={styles.detailHeader}>
-                      <span>系列: {session.series || '—'}</span>
-                      <span>岗位: {session.position || '—'}</span>
-                      <span>Số câu: {session.total_questions}</span>
+                      <span>{t('series')}: {session.series || '—'}</span>
+                      <span>{t('position')}: {session.position || '—'}</span>
+                      <span>{t('total_questions')}: {session.total_questions}</span>
                     </div>
                     
                     <div className={styles.questionsList}>
@@ -166,16 +174,16 @@ export default function HistoryPage() {
                         return (
                           <div key={q.id} className={styles.questionItem}>
                             <div className={styles.questionHeader}>
-                              <span className={styles.questionNumber}>Câu {qIdx + 1}</span>
+                              <span className={styles.questionNumber}>{t('question')} {qIdx + 1}</span>
                               <span className={`${styles.questionScore} ${isCorrect ? styles.fullScore : ''}`}>
-                                {isGraded ? `${achievedQScore}/${maxScore}` : `${maxScore} điểm`}
+                                {isGraded ? `${achievedQScore}/${maxScore}` : `${maxScore} ${t('points')}`}
                               </span>
                             </div>
                             <div className={styles.questionText}>{q.question}</div>
                             <div className={styles.answerSection}>
-                              <div className={styles.answerLabel}>Câu trả lời của bạn:</div>
+                              <div className={styles.answerLabel}>{t('your_answer_history')}</div>
                               <div className={styles.answerText}>
-                                {answer?.user_answer || 'Chưa có câu trả lời'}
+                                {answer?.user_answer || t('no_answer')}
                               </div>
                               {answer?.image_urls && answer.image_urls.length > 0 && (
                                 <div className={styles.answerImages}>
@@ -193,13 +201,12 @@ export default function HistoryPage() {
                               )}
                               {isGraded && (
                                 <div className={`${styles.gradeResult} ${isCorrect ? styles.correct : styles.wrong}`}>
-                                  {isCorrect ? '✓ Đúng' : '✗ Sai'}
+                                  {isCorrect ? '✓ ' + t('correct') : '✗ ' + t('wrong')}
                                 </div>
                               )}
-                              {/* Hiển thị nhận xét của giám khảo */}
                               {answer?.feedback && (
                                 <div className={styles.feedbackSection}>
-                                  <div className={styles.feedbackLabel}>📝 Nhận xét của giám khảo:</div>
+                                  <div className={styles.feedbackLabel}>📝 {t('feedback_from_examiner')}</div>
                                   <div className={styles.feedbackText}>{answer.feedback}</div>
                                   {answer.feedback_images && answer.feedback_images.length > 0 && (
                                     <div className={styles.feedbackImages}>
@@ -230,7 +237,6 @@ export default function HistoryPage() {
         </div>
       )}
 
-      {/* Lightbox xem ảnh to */}
       {lightboxImage && (
         <div className={styles.lightbox} onClick={() => setLightboxImage(null)}>
           <div className={styles.lightboxContent}>
