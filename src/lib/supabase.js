@@ -280,3 +280,15 @@ export async function gradeSubmission(submissionId, score) {
   });
   if (error) throw error;
 }
+
+// ========== FEEDBACK ==========
+export async function saveFeedback(submissionId, feedback, feedbackImages = []) {
+  const { error } = await supabase
+    .from('submissions')
+    .update({
+      feedback: feedback,
+      feedback_images: feedbackImages
+    })
+    .eq('id', submissionId);
+  if (error) throw error;
+}
