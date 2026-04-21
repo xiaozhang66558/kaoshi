@@ -68,6 +68,9 @@ const locales = {
     viewing: 'Đang xem',
     unanswered: 'Chưa trả lời',
     has_image: 'Có ảnh',
+    total_questions: 'Tổng số câu',
+    no_answer: 'Chưa có câu trả lời',
+    waiting_score: 'Chờ chấm điểm',
     
     // Admin Page
     admin_dashboard: 'Admin Dashboard',
@@ -116,7 +119,6 @@ const locales = {
     exam_history: 'Lịch sử bài thi',
     exam_no: 'Bài thi #{number}',
     total_score: 'điểm',
-    waiting_score: 'Chờ chấm điểm',
     your_answer_history: 'Câu trả lời của bạn:',
     feedback_from_examiner: '📝 Nhận xét của giám khảo:',
   },
@@ -189,6 +191,9 @@ const locales = {
     viewing: '查看中',
     unanswered: '未答',
     has_image: '有图片',
+    total_questions: '题目数量',
+    no_answer: '暂无答案',
+    waiting_score: '待评分',
     
     // Admin Page
     admin_dashboard: '管理后台',
@@ -237,7 +242,6 @@ const locales = {
     exam_history: '考试历史',
     exam_no: '试卷 #{number}',
     total_score: '分',
-    waiting_score: '待评分',
     your_answer_history: '您的答案：',
     feedback_from_examiner: '📝 考官评语：',
   },
@@ -310,6 +314,9 @@ const locales = {
     viewing: 'Viewing',
     unanswered: 'Unanswered',
     has_image: 'Has image',
+    total_questions: 'Total Questions',
+    no_answer: 'No answer',
+    waiting_score: 'Pending grading',
     
     // Admin Page
     admin_dashboard: 'Admin Dashboard',
@@ -358,7 +365,6 @@ const locales = {
     exam_history: 'Exam History',
     exam_no: 'Exam #{number}',
     total_score: 'point(s)',
-    waiting_score: 'Pending grading',
     your_answer_history: 'Your answer:',
     feedback_from_examiner: '📝 Examiner feedback:',
   }
