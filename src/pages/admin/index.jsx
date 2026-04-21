@@ -161,36 +161,35 @@ export default function AdminPage() {
   }
 
   async function deleteSession(sessionId, studentName) {
-  if (!confirm(`Bạn có chắc chắn muốn xoá bài thi của thí sinh "${studentName}"?\nHành động này không thể hoàn tác!`)) {
-    return;
+    if (!confirm(`Bạn có chắc chắn muốn xoá bài thi của thí sinh "${studentName}"?\nHành động này không thể hoàn tác!`)) {
+      return;
+    }
+    
+    try {
+      // Xóa các submissions trước
+      const { error: subError } = await supabase
+        .from('submissions')
+        .delete()
+        .eq('session_id', sessionId);
+      
+      if (subError) throw subError;
+      
+      // Xóa session
+      const { error: sessionError } = await supabase
+        .from('exam_sessions')
+        .delete()
+        .eq('id', sessionId);
+      
+      if (sessionError) throw sessionError;
+      
+      alert('✅ Đã xoá bài thi thành công!');
+      fetchData();
+    } catch (err) {
+      console.error('Xoá lỗi:', err);
+      alert('❌ Xoá thất bại: ' + err.message);
+    }
   }
-  
-  try {
-    // Xóa các submissions trước (do foreign key)
-    const { error: subError } = await supabase
-      .from('submissions')
-      .delete()
-      .eq('session_id', sessionId);
-    
-    if (subError) throw subError;
-    
-    // Xóa session
-    const { error: sessionError } = await supabase
-      .from('exam_sessions')
-      .delete()
-      .eq('id', sessionId);
-    
-    if (sessionError) throw sessionError;
-    
-    alert('✅ Đã xoá bài thi thành công!');
-    fetchData(); // Refresh danh sách
-  } catch (err) {
-    console.error('Xoá lỗi:', err);
-    alert('❌ Xoá thất bại: ' + err.message);
-  }
-}
 
-  
   async function handleGrade(submissionId, isCorrect) {
     const submission = detail.submissions.find(s => s.id === submissionId);
     const maxScore = submission?.questions_cache?.score || 0;
@@ -461,7 +460,7 @@ export default function AdminPage() {
                               🗑️ Xoá
                             </button>
                           </td>
-                        </table>
+                        </tr>
                       );
                     })
                   )}
