@@ -244,19 +244,55 @@ export default function AdminPage() {
         </div>
       </header>
       
+            {/* Tabs */}
       <div className={styles.tabs}>
-        <button className={tab === 'all' ? styles.activeTab : ''} onClick={() => { setTab('all'); setPage(1); fetchData(); }}>
+        <button className={tab === 'all' ? styles.activeTab : ''} onClick={() => { setTab('all'); setPage(1); }}>
           📋 Tất cả bài thi
         </button>
-        <button className={tab === 'pending' ? styles.activeTab : ''} onClick={() => { setTab('pending'); setPage(1); fetchData(); }}>
+        <button className={tab === 'pending' ? styles.activeTab : ''} onClick={() => { setTab('pending'); setPage(1); }}>
           ⏳ Chờ chấm điểm ({submittedSessions.length})
         </button>
       </div>
-      
+
+      {/* Bộ lọc - chỉ hiển thị khi ở tab "Tất cả bài thi" */}
+      {tab === 'all' && (
+        <div className={styles.filterBar}>
+          <div className={styles.searchBox}>
+            <input
+              type="text"
+              placeholder="🔍 Tìm theo tên thí sinh..."
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              className={styles.searchInput}
+            />
+          </div>
+          <div className={styles.filterSelects}>
+            <select 
+              value={filterSeries} 
+              onChange={(e) => setFilterSeries(e.target.value)}
+              className={styles.filterSelect}
+            >
+              <option value="">📋 Tất cả系列</option>
+              {seriesOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select 
+              value={filterPosition} 
+              onChange={(e) => setFilterPosition(e.target.value)}
+              className={styles.filterSelect}
+            >
+              <option value="">📋 Tất cả岗位</option>
+              {positionOptions.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Nội dung chính */}
       {loading ? (
         <div className={styles.loadingBox}><div className={styles.spinner} /></div>
       ) : (
         <>
+          {/* Tab Tất cả bài thi */}
           {tab === 'all' && (
             <div className={styles.tableWrap}>
               <table className={styles.table}>
@@ -272,39 +308,59 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sessions.map(s => {
-                    // Lấy series và position từ câu hỏi đầu tiên (hoặc có thể lấy từ session)
-                    // Cách 1: Nếu bạn lưu series/position trong session khi tạo
-                    const series = s.series || '—';
-                    const position = s.position || '—';
-                    
-                    return (
-                      <tr key={s.id}>
-                        <td>{s.profiles?.full_name || s.user_id}</td>
-                        <td>{series}</td>
-                        <td>{position}</td>
-                        <td>{s.submitted_at ? new Date(s.submitted_at).toLocaleString() : 'Chưa nộp'}</td>
-                        <td className={styles.scoreCell}>
-                          <span className={`${styles.scoreValue} ${s.status === 'graded' ? styles.scoreGraded : styles.scorePending}`}>
-                            {s.score || 0}/{s.total_questions}
-                          </span>
-                        </td>
-                        <td>
-                          {s.status === 'graded' ? '✅ Đã chấm' : s.status === 'submitted' ? '⏳ Chờ chấm' : '📝 Đang thi'}
-                        </td>
-                        <td>
-                          <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
-                            {s.status === 'submitted' ? 'Chấm điểm →' : 'Xem chi tiết →'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {sessions.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className={styles.empty}>
+                        {searchName || filterSeries || filterPosition 
+                          ? '🔍 Không tìm thấy bài thi nào phù hợp'
+                          : '📭 Chưa có bài thi nào'}
+                      </td>
+                    </tr>
+                  ) : (
+                    sessions.map(s => {
+                      const isFullyGraded = s.status === 'graded';
+                      return (
+                        <tr key={s.id}>
+                          <td className={styles.nameCell}>
+                            {s.profiles?.full_name || s.user_id}
+                            {s.profiles?.username && (
+                              <span className={styles.username}>({s.profiles.username})</span>
+                            )}
+                          </td>
+                          <td>{s.series || '—'}</td>
+                          <td>{s.position || '—'}</td>
+                          <td className={styles.timeCell}>
+                            {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : 'Chưa nộp'}
+                          </td>
+                          <td className={styles.centerCell}>
+                            <span className={`${styles.scorePill} ${isFullyGraded ? styles.pass : styles.fail}`}>
+                              {s.score || 0}/{s.total_questions || 0}
+                            </span>
+                          </td>
+                          <td className={styles.centerCell}>
+                            {s.status === 'graded' ? (
+                              <span className={styles.badgeGraded}>✅ Đã chấm</span>
+                            ) : s.status === 'submitted' ? (
+                              <span className={styles.badgePending}>⏳ Chờ chấm</span>
+                            ) : (
+                              <span className={styles.badgeProgress}>📝 Đang thi</span>
+                            )}
+                          </td>
+                          <td>
+                            <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
+                              {s.status === 'submitted' ? 'Chấm điểm →' : 'Xem chi tiết →'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
           )}
-          
+
+          {/* Tab Chờ chấm điểm */}
           {tab === 'pending' && (
             <div className={styles.tableWrap}>
               <table className={styles.table}>
@@ -319,27 +375,36 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {submittedSessions.map(s => (
-                    <tr key={s.id}>
-                      <td>{s.profiles?.full_name || s.user_id}</td>
-                      <td>{s.series || '—'}</td>
-                      <td>{s.position || '—'}</td>
-                      <td>{new Date(s.submitted_at).toLocaleString()}</td>
-                      <td className={styles.scoreCell}>
-                        <span className={styles.scorePending}>{(s.score || 0)}/{s.total_questions}</span>
-                      </td>
-                      <td>
-                        <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
-                          Chấm điểm →
-                        </button>
-                      </td>
+                  {submittedSessions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className={styles.empty}>🎉 Không có bài thi nào chờ chấm!</td>
                     </tr>
-                  ))}
+                  ) : (
+                    submittedSessions.map(s => (
+                      <tr key={s.id}>
+                        <td>{s.profiles?.full_name || s.user_id}</td>
+                        <td>{s.series || '—'}</td>
+                        <td>{s.position || '—'}</td>
+                        <td className={styles.timeCell}>
+                          {new Date(s.submitted_at).toLocaleString()}
+                        </td>
+                        <td className={styles.centerCell}>
+                          <span className={styles.scorePending}>{(s.score || 0)}/{s.total_questions || 0}</span>
+                        </td>
+                        <td>
+                          <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
+                            Chấm điểm →
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           )}
-          
+
+          {/* Phân trang - chỉ hiển thị khi ở tab "Tất cả bài thi" và có nhiều hơn 20 bài */}
           {tab === 'all' && total > 20 && (
             <div className={styles.pagination}>
               <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Trước</button>
@@ -349,6 +414,3 @@ export default function AdminPage() {
           )}
         </>
       )}
-    </div>
-  );
-}
