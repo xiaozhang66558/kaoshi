@@ -48,75 +48,118 @@ export default function LoginPage() {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={styles.container}>
+      <div className={styles.background}>
+        <div className={styles.overlay}></div>
+      </div>
+      
       <div className={styles.card}>
-        <div className={styles.brand}>
-          <div className={styles.brandIcon}>
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="#1a1a2e"/>
-              <path d="M8 10h16M8 16h10M8 22h13" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
+        <div className={styles.cardInner}>
+          <div className={styles.header}>
+            <div className={styles.logo}>
+              <div className={styles.logoIcon}>📘</div>
+              <h1 className={styles.logoText}>薪资系统</h1>
+            </div>
+            <p className={styles.subtitle}>ExamFlow - Hệ thống thi trực tuyến</p>
           </div>
-          <h1 className={styles.brandName}>ExamFlow</h1>
-        </div>
-        <h2 className={styles.title}>{mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'}</h2>
-        <p className={styles.subtitle}>
-          {mode === 'login' ? 'Nhập tên đăng nhập và mật khẩu' : 'Điền thông tin để tạo tài khoản'}
-        </p>
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.field}>
-            <label className={styles.label}>Tên đăng nhập</label>
-            <input
-              className={styles.input}
-              type="text"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              placeholder="Ví dụ: nguyenvana"
-              required
-              autoComplete="username"
-            />
+
+          <div className={styles.tabs}>
+            <button
+              className={`${styles.tab} ${mode === 'login' ? styles.activeTab : ''}`}
+              onClick={() => { setMode('login'); setError(''); }}
+            >
+              登录
+            </button>
+            <button
+              className={`${styles.tab} ${mode === 'register' ? styles.activeTab : ''}`}
+              onClick={() => { setMode('register'); setError(''); }}
+            >
+              首次设置
+            </button>
           </div>
-          {mode === 'register' && (
-            <div className={styles.field}>
-              <label className={styles.label}>Họ và tên</label>
+
+          <form onSubmit={handleSubmit} className={styles.form}>
+            <div className={styles.inputGroup}>
+              <div className={styles.inputIcon}>
+                <span>👤</span>
+              </div>
               <input
-                className={styles.input}
                 type="text"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
-                placeholder="Nguyễn Văn A"
+                className={styles.input}
+                placeholder="用户名"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>
-          )}
-          <div className={styles.field}>
-            <label className={styles.label}>Mật khẩu</label>
-            <input
-              className={styles.input}
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              minLength={6}
-            />
+
+            <div className={styles.inputGroup}>
+              <div className={styles.inputIcon}>
+                <span>🔒</span>
+              </div>
+              <input
+                type="password"
+                className={styles.input}
+                placeholder="密码"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            {mode === 'register' && (
+              <div className={styles.inputGroup}>
+                <div className={styles.inputIcon}>
+                  <span>📝</span>
+                </div>
+                <input
+                  type="text"
+                  className={styles.input}
+                  placeholder="姓名"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+
+            {mode === 'login' && (
+              <div className={styles.forgotPassword}>
+                <a href="#" onClick={(e) => e.preventDefault()}>忘记密码？</a>
+              </div>
+            )}
+
+            {error && <div className={styles.error}>{error}</div>}
+
+            <button type="submit" className={styles.submitBtn} disabled={loading}>
+              {loading ? <div className={styles.spinner}></div> : (mode === 'login' ? '登录' : '注册')}
+            </button>
+          </form>
+
+          <div className={styles.footer}>
+            {mode === 'login' ? (
+              <p>
+                没有账号？{' '}
+                <button
+                  className={styles.switchBtn}
+                  onClick={() => { setMode('register'); setError(''); }}
+                >
+                  立即注册
+                </button>
+              </p>
+            ) : (
+              <p>
+                已有账号？{' '}
+                <button
+                  className={styles.switchBtn}
+                  onClick={() => { setMode('login'); setError(''); }}
+                >
+                  返回登录
+                </button>
+              </p>
+            )}
           </div>
-          {error && <div className={styles.error}>{error}</div>}
-          <button className={styles.btn} type="submit" disabled={loading}>
-            {loading ? <span className={styles.spinner} /> : (mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản')}
-          </button>
-        </form>
-        <p className={styles.switchMode}>
-          {mode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}
-          {' '}
-          <button
-            className={styles.link}
-            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
-          >
-            {mode === 'login' ? 'Đăng ký ngay' : 'Đăng nhập'}
-          </button>
-        </p>
+        </div>
       </div>
     </div>
   );
