@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase, getProfile, getAllSessions, getSessionDetail, getSubmittedSessions, gradeSubmission } from '../../lib/supabase';
+import Modal from '../../components/Modal';
 import styles from '../../styles/admin.module.css';
 
 const SYNC_URL = '/.netlify/functions/sync-questions';
@@ -21,6 +22,8 @@ export default function AdminPage() {
   const [filterPosition, setFilterPosition] = useState('');
   const [seriesOptions, setSeriesOptions] = useState([]);
   const [positionOptions, setPositionOptions] = useState([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const limit = 20;
 
   // Lấy danh sách series và position để hiển thị trong dropdown
@@ -160,35 +163,34 @@ export default function AdminPage() {
     }
   }
 
-  async function deleteSession(sessionId, studentName) {
-    if (!confirm(`Bạn có chắc chắn muốn xoá bài thi của thí sinh "${studentName}"?\nHành động này không thể hoàn tác!`)) {
-      return;
-    }
+  // Xác nhận xoá bài thi
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     
     try {
-      // Xóa các submissions trước
+      // Xóa submissions trước
       const { error: subError } = await supabase
         .from('submissions')
         .delete()
-        .eq('session_id', sessionId);
-      
+        .eq('session_id', deleteTarget.sessionId);
       if (subError) throw subError;
       
       // Xóa session
       const { error: sessionError } = await supabase
         .from('exam_sessions')
         .delete()
-        .eq('id', sessionId);
-      
+        .eq('id', deleteTarget.sessionId);
       if (sessionError) throw sessionError;
       
       alert('✅ Đã xoá bài thi thành công!');
       fetchData();
     } catch (err) {
-      console.error('Xoá lỗi:', err);
       alert('❌ Xoá thất bại: ' + err.message);
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteTarget(null);
     }
-  }
+  };
 
   async function handleGrade(submissionId, isCorrect) {
     const submission = detail.submissions.find(s => s.id === submissionId);
@@ -455,7 +457,13 @@ export default function AdminPage() {
                             </button>
                             <button 
                               className={styles.deleteBtn} 
-                              onClick={() => deleteSession(s.id, s.profiles?.full_name || s.user_id)}
+                              onClick={() => {
+                                setDeleteTarget({ 
+                                  sessionId: s.id, 
+                                  studentName: s.profiles?.full_name || s.user_id 
+                                });
+                                setShowDeleteModal(true);
+                              }}
                             >
                               🗑️ Xoá
                             </button>
@@ -512,17 +520,19 @@ export default function AdminPage() {
               </table>
             </div>
           )}
-
-          {/* Phân trang - chỉ hiển thị khi ở tab "Tất cả bài thi" và có nhiều hơn 20 bài */}
-          {tab === 'all' && total > 20 && (
-            <div className={styles.pagination}>
-              <button disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Trước</button>
-              <span>Trang {page} / {Math.ceil(total / 20)}</span>
-              <button disabled={page >= Math.ceil(total / 20)} onClick={() => setPage(p => p + 1)}>Tiếp →</button>
-            </div>
-          )}
         </>
       )}
+
+      {/* Modal xác nhận xoá */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Xác nhận xoá"
+        message={`Bạn có chắc chắn muốn xoá bài thi của thí sinh "${deleteTarget?.studentName}"?\nHành động này không thể hoàn tác!`}
+        onConfirm={confirmDelete}
+        confirmText="Xoá"
+        cancelText="Hủy"
+      />
     </div>
   );
 }
