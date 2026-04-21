@@ -236,6 +236,7 @@
   text-align: center;
 }
 
+/* Tên thí sinh cũng căn giữa */
 .nameCell {
   font-size: 0.8rem;
   white-space: nowrap;
@@ -243,6 +244,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
+  width: 100%;
 }
 
 .username {
