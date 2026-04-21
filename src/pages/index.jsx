@@ -125,11 +125,6 @@ export default function LoginPage() {
               </div>
             )}
 
-            {mode === 'login' && (
-              <div className={styles.forgotPassword}>
-                <a href="#" onClick={(e) => e.preventDefault()}>{t('forgot_password')}</a>
-              </div>
-            )}
 
             {error && <div className={styles.error}>{error}</div>}
 
