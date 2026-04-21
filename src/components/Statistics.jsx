@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
+import { Chart as ChartJS, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import { useLanguage } from '../contexts/LanguageContext';
 import styles from '../styles/statistics.module.css';
 
-ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
+ChartJS.register(Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
 export default function Statistics({ sessions }) {
+  const { t } = useLanguage();
   const [stats, setStats] = useState({
     avgScore: 0,
     avgTime: 0,
+    avgTimeFormatted: '0 phút 0 giây',
     totalExams: 0,
     seriesStats: [],
     positionStats: []
@@ -32,11 +35,16 @@ export default function Statistics({ sessions }) {
       }
     });
     const avgTime = timeCount > 0 ? totalTime / timeCount : 0;
+    
+    // Format thời gian theo ngôn ngữ
+    const mins = Math.floor(avgTime / 60);
+    const secs = Math.floor(avgTime % 60);
+    const avgTimeFormatted = t('time_format', { minutes: mins, seconds: secs });
 
-    // Thống kê theo series - lấy TẤT CẢ các series (không lọc)
+    // Thống kê theo series
     const seriesMap = new Map();
     sessions.forEach(s => {
-      const seriesName = s.series || 'Khác';
+      const seriesName = s.series || t('other');
       if (!seriesMap.has(seriesName)) {
         seriesMap.set(seriesName, { total: 0, count: 0 });
       }
@@ -51,10 +59,10 @@ export default function Statistics({ sessions }) {
       }))
       .sort((a, b) => b.avg - a.avg);
 
-    // Thống kê theo position - lấy TẤT CẢ các position (không lọc)
+    // Thống kê theo position
     const positionMap = new Map();
     sessions.forEach(s => {
-      const positionName = s.position || 'Khác';
+      const positionName = s.position || t('other');
       if (!positionMap.has(positionName)) {
         positionMap.set(positionName, { total: 0, count: 0 });
       }
@@ -71,25 +79,20 @@ export default function Statistics({ sessions }) {
 
     setStats({
       avgScore: avgScore.toFixed(1),
-      avgTime: formatTime(avgTime),
+      avgTime: avgTime,
+      avgTimeFormatted,
       totalExams: sessions.length,
       seriesStats,
       positionStats
     });
-  }, [sessions]);
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins} phút ${secs} giây`;
-  };
+  }, [sessions, t]);
 
   // Dữ liệu biểu đồ cột cho series
   const seriesBarData = {
     labels: stats.seriesStats.map(s => s.name),
     datasets: [
       {
-        label: 'Điểm trung bình',
+        label: t('avg_score'),
         data: stats.seriesStats.map(s => s.avg),
         backgroundColor: 'rgba(79, 70, 229, 0.7)',
         borderRadius: 8,
@@ -103,7 +106,7 @@ export default function Statistics({ sessions }) {
     labels: stats.positionStats.map(p => p.name),
     datasets: [
       {
-        label: 'Điểm trung bình',
+        label: t('avg_score'),
         data: stats.positionStats.map(p => p.avg),
         backgroundColor: 'rgba(16, 185, 129, 0.7)',
         borderRadius: 8,
@@ -126,7 +129,7 @@ export default function Statistics({ sessions }) {
       tooltip: {
         callbacks: {
           label: function(context) {
-            return `Điểm TB: ${context.raw.toFixed(1)} điểm`;
+            return `${t('avg_score')}: ${context.raw.toFixed(1)} ${t('points')}`;
           }
         }
       }
@@ -137,7 +140,7 @@ export default function Statistics({ sessions }) {
         max: 100,
         title: {
           display: true,
-          text: 'Điểm',
+          text: t('score'),
           font: { size: 11 },
         },
         grid: {
@@ -145,28 +148,6 @@ export default function Statistics({ sessions }) {
         },
       },
       x: {
-        title: {
-          display: true,
-          text: '系列',
-          font: { size: 11 },
-        },
-        ticks: {
-          font: { size: 10 },
-        },
-      },
-    },
-  };
-
-  const positionBarOptions = {
-    ...barOptions,
-    scales: {
-      ...barOptions.scales,
-      x: {
-        title: {
-          display: true,
-          text: '岗位',
-          font: { size: 11 },
-        },
         ticks: {
           font: { size: 10 },
         },
@@ -177,7 +158,7 @@ export default function Statistics({ sessions }) {
   if (sessions.length === 0) {
     return (
       <div className={styles.statisticsEmpty}>
-        <p>📊 Chưa có dữ liệu thống kê</p>
+        <p>📊 {t('no_stats_data')}</p>
       </div>
     );
   }
@@ -185,7 +166,7 @@ export default function Statistics({ sessions }) {
   return (
     <div className={styles.statistics}>
       <div className={styles.statsHeader}>
-        <h3>📊 Thống kê bài thi</h3>
+        <h3>📊 {t('exam_statistics')}</h3>
       </div>
 
       <div className={styles.statsCards}>
@@ -193,21 +174,21 @@ export default function Statistics({ sessions }) {
           <div className={styles.statIcon}>📝</div>
           <div className={styles.statInfo}>
             <div className={styles.statValue}>{stats.totalExams}</div>
-            <div className={styles.statLabel}>Tổng số bài thi</div>
+            <div className={styles.statLabel}>{t('total_exams')}</div>
           </div>
         </div>
         <div className={styles.statCard}>
           <div className={styles.statIcon}>⭐</div>
           <div className={styles.statInfo}>
             <div className={styles.statValue}>{stats.avgScore}</div>
-            <div className={styles.statLabel}>Điểm trung bình</div>
+            <div className={styles.statLabel}>{t('avg_score_label')}</div>
           </div>
         </div>
         <div className={styles.statCard}>
           <div className={styles.statIcon}>⏱️</div>
           <div className={styles.statInfo}>
-            <div className={styles.statValue}>{stats.avgTime}</div>
-            <div className={styles.statLabel}>Thời gian TB</div>
+            <div className={styles.statValue}>{stats.avgTimeFormatted}</div>
+            <div className={styles.statLabel}>{t('avg_time_label')}</div>
           </div>
         </div>
       </div>
@@ -215,20 +196,20 @@ export default function Statistics({ sessions }) {
       <div className={styles.chartsContainer}>
         <div className={styles.chartCard}>
           <div className={styles.chartTitle}>
-            <span>📊 Điểm TB theo 系列</span>
+            <span>📊 {t('avg_score_by_series')}</span>
           </div>
           <div className={styles.barChartContainer}>
             {stats.seriesStats.length > 0 ? (
               <Bar data={seriesBarData} options={barOptions} />
             ) : (
-              <div className={styles.noData}>Chưa có dữ liệu</div>
+              <div className={styles.noData}>{t('no_data')}</div>
             )}
           </div>
           <div className={styles.chartLegend}>
             {stats.seriesStats.map((s, idx) => (
               <div key={idx} className={styles.legendItem}>
                 <span className={styles.legendColor} style={{ backgroundColor: '#4f46e5' }}></span>
-                <span>{s.name}: {s.avg.toFixed(1)} điểm ({s.count} bài)</span>
+                <span>{s.name}: {s.avg.toFixed(1)} {t('points')} ({s.count} {t('exams_count')})</span>
               </div>
             ))}
           </div>
@@ -236,20 +217,20 @@ export default function Statistics({ sessions }) {
 
         <div className={styles.chartCard}>
           <div className={styles.chartTitle}>
-            <span>📊 Điểm TB theo 岗位</span>
+            <span>📊 {t('avg_score_by_position')}</span>
           </div>
           <div className={styles.barChartContainer}>
             {stats.positionStats.length > 0 ? (
-              <Bar data={positionBarData} options={positionBarOptions} />
+              <Bar data={positionBarData} options={barOptions} />
             ) : (
-              <div className={styles.noData}>Chưa có dữ liệu</div>
+              <div className={styles.noData}>{t('no_data')}</div>
             )}
           </div>
           <div className={styles.chartLegend}>
             {stats.positionStats.map((p, idx) => (
               <div key={idx} className={styles.legendItem}>
                 <span className={styles.legendColor} style={{ backgroundColor: '#10b981' }}></span>
-                <span>{p.name}: {p.avg.toFixed(1)} điểm ({p.count} bài)</span>
+                <span>{p.name}: {p.avg.toFixed(1)} {t('points')} ({p.count} {t('exams_count')})</span>
               </div>
             ))}
           </div>
