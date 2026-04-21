@@ -14,8 +14,8 @@ export default function AdminPage() {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [tab, setTab] = useState('all');
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [tab, setTab] = useState('all');
 
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export default function AdminPage() {
             <h2>{session.profiles?.full_name || session.user_id}</h2>
             <p>{session.profiles?.email || ''} · Nộp lúc {new Date(session.submitted_at).toLocaleString()}</p>
           </div>
-          <div className={styles.scoreBadge}>Điểm tạm tính: {currentTotal}/{totalPossible}</div>
+          <div className={styles.scoreBadge}>Điểm: {currentTotal}/{totalPossible}</div>
         </div>
         
         <div className={styles.submissionList}>
@@ -117,6 +117,8 @@ export default function AdminPage() {
                   <strong>Câu trả lời của thí sinh:</strong>
                   <p className={styles.answerText}>{sub.user_answer || '(chưa có câu trả lời)'}</p>
                 </div>
+                
+                {/* Hiển thị ảnh - bấm vào để xem to */}
                 {sub.image_urls && sub.image_urls.length > 0 && (
                   <div className={styles.answerImages}>
                     <strong>Ảnh đính kèm:</strong>
@@ -160,7 +162,7 @@ export default function AdminPage() {
           })}
         </div>
         
-        {/* Nút Xong - quay về tab Tất cả bài thi */}
+        {/* Nút Xong */}
         <div className={styles.doneSection}>
           <button 
             className={styles.doneBtn} 
@@ -175,11 +177,13 @@ export default function AdminPage() {
           </button>
         </div>
   
-        {/* ===== MODAL XEM ẢNH TO ===== */}
+        {/* Modal xem ảnh to */}
         {lightboxImage && (
           <div className={styles.lightbox} onClick={() => setLightboxImage(null)}>
-            <span className={styles.lightboxClose}>&times;</span>
-            <img className={styles.lightboxImage} src={lightboxImage} alt="Ảnh to" />
+            <div className={styles.lightboxContent}>
+              <span className={styles.lightboxClose} onClick={() => setLightboxImage(null)}>&times;</span>
+              <img className={styles.lightboxImage} src={lightboxImage} alt="Ảnh to" />
+            </div>
           </div>
         )}
       </div>
