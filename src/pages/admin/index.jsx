@@ -300,7 +300,7 @@ export default function AdminPage() {
             <h2>{session.profiles?.full_name || session.user_id}</h2>
             <p>{session.profiles?.email || ''} · {t('submit_time')}: {new Date(session.submitted_at).toLocaleString()}</p>
           </div>
-          <div className={styles.scoreBadge}>{t('score')}: {currentTotal}/{totalPossible}</div>
+          <div className={styles.scoreBadge}>{t('score')}: {currentTotal}/100</div>
         </div>
         
         <div className={styles.submissionList}>
@@ -589,7 +589,7 @@ export default function AdminPage() {
                           </td>
                           <td className={styles.centerCell}>
                             <span className={`${styles.scorePill} ${isFullyGraded ? styles.pass : styles.fail}`}>
-                              {s.score || 0}/{s.total_questions || 0}
+                              {s.score || 0}/100
                             </span>
                           </td>
                           <td className={styles.centerCell}>
@@ -653,7 +653,7 @@ export default function AdminPage() {
                           {new Date(s.submitted_at).toLocaleString()}
                         </td>
                         <td className={styles.centerCell}>
-                          <span className={styles.scorePending}>{(s.score || 0)}/{s.total_questions || 0}</span>
+                          <span className={styles.scorePending}>{(s.score || 0)}/100</span>
                         </td>
                         <td>
                           <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
