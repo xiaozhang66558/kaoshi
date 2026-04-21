@@ -64,8 +64,32 @@ export default function AdminPage() {
     setLoading(true);
     try {
       if (tab === 'all') {
-        const { data, count } = await getAllSessions({ page, limit: 20 });
-        setSessions(data);
+        let query = supabase
+          .from('exam_sessions')
+          .select('*, profiles(full_name, email, username)', { count: 'exact' })
+          .neq('status', 'in_progress');
+        
+        // Áp dụng bộ lọc series và position
+        if (filterSeries) query = query.eq('series', filterSeries);
+        if (filterPosition) query = query.eq('position', filterPosition);
+        
+        // Phân trang
+        const from = (page - 1) * limit;
+        query = query.order('submitted_at', { ascending: false }).range(from, from + limit - 1);
+        
+        const { data, error, count } = await query;
+        if (error) throw error;
+        
+        // Lọc theo tên thí sinh (client-side vì profiles đã được join)
+        let filteredData = data || [];
+        if (searchName) {
+          filteredData = filteredData.filter(s => 
+            s.profiles?.full_name?.toLowerCase().includes(searchName.toLowerCase()) ||
+            s.profiles?.username?.toLowerCase().includes(searchName.toLowerCase())
+          );
+        }
+        
+        setSessions(filteredData);
         setTotal(count);
       } else {
         const data = await getSubmittedSessions();
