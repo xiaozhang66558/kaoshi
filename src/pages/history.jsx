@@ -32,7 +32,6 @@ export default function HistoryPage() {
   async function loadHistory(userId) {
     setLoading(true);
     try {
-      // Lấy tất cả session đã nộp của thí sinh
       const { data: sessions, error } = await supabase
         .from('exam_sessions')
         .select('*')
@@ -42,60 +41,50 @@ export default function HistoryPage() {
       
       if (error) throw error;
       
-      console.log('Sessions loaded:', sessions);
-      
-      // Lấy chi tiết cho từng session
       const sessionsWithDetails = await Promise.all(
         sessions.map(async (session) => {
-          // Lấy câu hỏi từ questions_cache
+          // Lấy câu hỏi từ questions_cache - dùng in để lấy tất cả
           const { data: questions, error: qErr } = await supabase
             .from('questions_cache')
             .select('*')
-            .in('id', session.question_ids);
+            .in('id', session.question_ids || []);
           
+          let orderedQuestions = [];
           if (qErr) {
             console.error('Lỗi lấy câu hỏi:', qErr);
-            return { ...session, questions: [], answers: {}, submissions: [] };
+          } else if (questions && questions.length > 0) {
+            // Sắp xếp theo đúng thứ tự
+            orderedQuestions = session.question_ids
+              .map(id => questions.find(q => q.id === id))
+              .filter(Boolean);
           }
           
-          // Sắp xếp câu hỏi theo đúng thứ tự
-          const orderedQuestions = session.question_ids
-            .map(id => questions.find(q => q.id === id))
-            .filter(Boolean);
-          
-          console.log(`Session ${session.id} có ${orderedQuestions.length} câu hỏi`);
-          
-          // Lấy câu trả lời của thí sinh
+          // Lấy câu trả lời
           const { data: submissions, error: subErr } = await supabase
             .from('submissions')
             .select('*')
             .eq('session_id', session.id);
           
-          if (subErr) {
-            console.error('Lỗi lấy submissions:', subErr);
-            return { ...session, questions: orderedQuestions, answers: {}, submissions: [] };
-          }
-          
-          // Tạo map answers theo question_id
           const answersMap = {};
-          submissions.forEach(sub => {
-            answersMap[sub.question_id] = sub;
-          });
+          if (!subErr && submissions) {
+            submissions.forEach(sub => {
+              answersMap[sub.question_id] = sub;
+            });
+          }
           
           return {
             ...session,
             questions: orderedQuestions,
             answers: answersMap,
-            submissions: submissions
+            submissions: submissions || []
           };
         })
       );
       
-      console.log('Sessions with details:', sessionsWithDetails);
       setSessions(sessionsWithDetails);
     } catch (err) {
       console.error('Lỗi tải lịch sử:', err);
-      alert('Không thể tải lịch sử bài thi: ' + err.message);
+      alert('Không thể tải lịch sử bài thi');
     } finally {
       setLoading(false);
     }
@@ -114,6 +103,12 @@ export default function HistoryPage() {
       return `${score}/${totalScore} ${t('total_score')}`;
     }
     return t('waiting_score');
+  };
+
+  // Hàm lấy text câu hỏi an toàn
+  const getQuestionText = (q) => {
+    if (!q) return 'Câu hỏi đã bị xóa khỏi hệ thống';
+    return q.question || 'Không có nội dung';
   };
 
   return (
@@ -146,7 +141,7 @@ export default function HistoryPage() {
       ) : (
         <div className={styles.historyList}>
           {sessions.map((session, idx) => {
-            const totalScore = session.questions?.reduce((sum, q) => sum + (q.score || 0), 0) || 0;
+            const totalScore = session.questions?.reduce((sum, q) => sum + (q?.score || 0), 0) || 0;
             const achievedScore = session.score || 0;
             const isGraded = session.status === 'graded';
             
@@ -181,7 +176,7 @@ export default function HistoryPage() {
                       <div className={styles.questionsList}>
                         {session.questions.map((q, qIdx) => {
                           const answer = session.answers[q.id];
-                          const maxScore = q.score || 0;
+                          const maxScore = q?.score || 0;
                           const achievedQScore = answer?.score || 0;
                           const isCorrect = achievedQScore === maxScore && maxScore > 0;
                           
@@ -193,7 +188,7 @@ export default function HistoryPage() {
                                   {isGraded ? `${achievedQScore}/${maxScore}` : `${maxScore} ${t('points')}`}
                                 </span>
                               </div>
-                              <div className={styles.questionText}>{q.question}</div>
+                              <div className={styles.questionText}>{getQuestionText(q)}</div>
                               <div className={styles.answerSection}>
                                 <div className={styles.answerLabel}>{t('your_answer_history')}</div>
                                 <div className={styles.answerText}>
@@ -245,7 +240,8 @@ export default function HistoryPage() {
                       </div>
                     ) : (
                       <div className={styles.noQuestions}>
-                        <p>Không có dữ liệu câu hỏi cho bài thi này</p>
+                        <p>⚠️ Dữ liệu câu hỏi cho bài thi này đã bị xóa khỏi hệ thống</p>
+                        <p className={styles.noQuestionsHint}>Vui lòng liên hệ admin để được hỗ trợ</p>
                       </div>
                     )}
                   </div>
