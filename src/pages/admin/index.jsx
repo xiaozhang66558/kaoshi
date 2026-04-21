@@ -75,7 +75,7 @@ export default function AdminPage() {
       if (tab === 'all') {
         let query = supabase
           .from('exam_sessions')
-          .select('*')
+          .select('*, graded_by')
           .neq('status', 'in_progress')
           .order('submitted_at', { ascending: false });
         
@@ -83,13 +83,15 @@ export default function AdminPage() {
         if (error) throw error;
         
         const userIds = [...new Set(sessions.map(s => s.user_id).filter(Boolean))];
+        const graderIds = [...new Set(sessions.map(s => s.graded_by).filter(Boolean))];
+        const allIds = [...new Set([...userIds, ...graderIds])];
         let profileMap = {};
         
-        if (userIds.length > 0) {
+        if (allIds.length > 0) {
           const { data: profiles, error: profileError } = await supabase
             .from('profiles')
             .select('id, full_name, email, username')
-            .in('id', userIds);
+            .in('id', allIds);
           
           if (!profileError && profiles) {
             profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
@@ -98,7 +100,8 @@ export default function AdminPage() {
         
         const sessionsWithProfiles = sessions.map(s => ({
           ...s,
-          profiles: profileMap[s.user_id] || null
+          profiles: profileMap[s.user_id] || null,
+          grader_profile: profileMap[s.graded_by] || null
         }));
         
         let filteredData = sessionsWithProfiles;
@@ -561,12 +564,13 @@ export default function AdminPage() {
                     <th>{t('submit_time')}</th>
                     <th>{t('score')}</th>
                     <th>{t('status')}</th>
+                    <th>Người chấm</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {sessions.length === 0 ? (
-                    <tr><td colSpan={7} className={styles.empty}>{t('no_exams')}</td></tr>
+                    <tr><td colSpan={8} className={styles.empty}>{t('no_exams')}</td></tr>
                   ) : (
                     sessions.map(s => {
                       const isFullyGraded = s.status === 'graded';
@@ -599,6 +603,15 @@ export default function AdminPage() {
                               <span className={styles.badgePending}>⏳ {t('waiting')}</span>
                             ) : (
                               <span className={styles.badgeProgress}>📝 {t('in_progress')}</span>
+                            )}
+                          </td>
+                          <td className={styles.centerCell}>
+                            {s.graded_by ? (
+                              <span className={styles.graderName}>
+                                {s.grader_profile?.full_name || s.grader_profile?.username || 'Admin'}
+                              </span>
+                            ) : (
+                              <span className={styles.notGraded}>—</span>
                             )}
                           </td>
                           <td className={styles.actionCell}>
