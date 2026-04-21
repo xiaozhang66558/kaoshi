@@ -72,11 +72,11 @@ export async function getProfile(userId) {
 
 // ========== EXAM ==========
 export async function createExamSession({ numQuestions = 10, durationMins = 30, series = null, position = null } = {}) {
-  const client = checkSupabase();
-  const { data: { user } } = await client.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Chưa đăng nhập');
 
-  const { data: existing, error: checkErr } = await client
+  // Kiểm tra đã có session in_progress chưa
+  const { data: existing, error: checkErr } = await supabase
     .from('exam_sessions')
     .select('id')
     .eq('user_id', user.id)
@@ -84,7 +84,8 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
     .maybeSingle();
   if (existing) throw new Error('Bạn đang có bài thi chưa hoàn thành');
 
-  let query = client.from('questions_cache').select('id').eq('is_active', true);
+  // Lấy danh sách câu hỏi theo series/position
+  let query = supabase.from('questions_cache').select('id').eq('is_active', true);
   if (series) query = query.eq('series', series);
   if (position) query = query.eq('position', position);
   
@@ -94,6 +95,7 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
     throw new Error(`Không đủ câu hỏi (cần ${numQuestions}, có ${questions?.length || 0})`);
   }
   
+  // Random chọn numQuestions câu
   const shuffled = [...questions];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -101,6 +103,7 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
   }
   const selectedIds = shuffled.slice(0, numQuestions).map(q => q.id);
 
+  // Tạo session mới - THÊM series và position vào đây
   const { data: session, error: insertErr } = await supabase
     .from('exam_sessions')
     .insert({
