@@ -31,7 +31,21 @@ const locales = {
     username_not_found: 'Tên đăng nhập không tồn tại',
     wrong_password: 'Sai mật khẩu',
     register_success: 'Đăng ký thành công! Bạn có thể đăng nhập ngay.',
-    
+
+    // Thêm vào phần vi
+    exam_statistics: 'Thống kê bài thi',
+    total_exams: 'Tổng số bài thi',
+    avg_score_label: 'Điểm trung bình',
+    avg_time_label: 'Thời gian TB',
+    avg_score: 'Điểm trung bình',
+    avg_score_by_series: 'Điểm TB theo 系列',
+    avg_score_by_position: 'Điểm TB theo 岗位',
+    no_stats_data: 'Chưa có dữ liệu thống kê',
+    no_data: 'Chưa có dữ liệu',
+    exams_count: 'bài',
+    other: 'Khác',
+    time_format: '{minutes} phút {seconds} giây',
+        
     // Exam Page - Select
     select_questions: 'Chọn bộ câu hỏi',
     select_series: '系列 (Series)',
@@ -154,6 +168,20 @@ const locales = {
     username_not_found: '用户名不存在',
     wrong_password: '密码错误',
     register_success: '注册成功！您现在可以登录了。',
+
+    // Thêm vào phần zh
+    exam_statistics: '考试统计',
+    total_exams: '考试总数',
+    avg_score_label: '平均分',
+    avg_time_label: '平均时间',
+    avg_score: '平均分',
+    avg_score_by_series: '系列平均分',
+    avg_score_by_position: '岗位平均分',
+    no_stats_data: '暂无统计数据',
+    no_data: '暂无数据',
+    exams_count: '份',
+    other: '其他',
+    time_format: '{minutes}分{seconds}秒',
     
     // Exam Page - Select
     select_questions: '选择试题',
@@ -277,7 +305,21 @@ const locales = {
     username_not_found: 'Username not found',
     wrong_password: 'Wrong password',
     register_success: 'Registration successful! You can now log in.',
-    
+
+    // Thêm vào phần en
+    exam_statistics: 'Exam Statistics',
+    total_exams: 'Total Exams',
+    avg_score_label: 'Average Score',
+    avg_time_label: 'Avg Time',
+    avg_score: 'Average Score',
+    avg_score_by_series: 'Avg Score by Series',
+    avg_score_by_position: 'Avg Score by Position',
+    no_stats_data: 'No statistics data available',
+    no_data: 'No data',
+    exams_count: 'exams',
+    other: 'Other',
+    time_format: '{minutes} min {seconds} sec',
+        
     // Exam Page - Select
     select_questions: 'Select Question Set',
     select_series: 'Series',
