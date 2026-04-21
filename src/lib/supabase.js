@@ -29,7 +29,6 @@ export async function signInWithUsername(username, password) {
   try {
     console.log('1. Đang tìm username:', username);
     
-    // Tìm profile theo username
     const { data: profiles, error: profileError } = await supabase
       .from('profiles')
       .select('id, email, username, role')
@@ -50,7 +49,6 @@ export async function signInWithUsername(username, password) {
     const profile = profiles[0];
     console.log('5. Tìm thấy profile:', profile);
     
-    // Đăng nhập bằng email
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email: profile.email,
       password: password,
@@ -87,6 +85,27 @@ export async function getProfile(userId) {
 }
 
 // ========== EXAM ==========
+export async function saveAnswer(sessionId, questionId, userAnswer, imageUrls = []) {
+  console.log('Saving answer:', { sessionId, questionId, userAnswer, imageUrls });
+  const { error } = await supabase
+    .from('submissions')
+    .upsert(
+      { 
+        session_id: sessionId, 
+        question_id: questionId, 
+        user_answer: userAnswer, 
+        image_urls: imageUrls,
+        answered_at: new Date().toISOString()
+      },
+      { onConflict: 'session_id,question_id' }
+    );
+  if (error) {
+    console.error('Save answer error:', error);
+    throw error;
+  }
+  console.log('Save answer success');
+}
+
 export async function createExamSession({ durationMins = 30, series = null, position = null } = {}) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Chưa đăng nhập');
@@ -99,7 +118,6 @@ export async function createExamSession({ durationMins = 30, series = null, posi
     .maybeSingle();
   if (existing) throw new Error('Bạn đang có bài thi chưa hoàn thành');
 
-  // Lấy tất cả câu hỏi theo series/position
   let query = supabase.from('questions_cache').select('id, score').eq('is_active', true);
   if (series) query = query.eq('series', series);
   if (position) query = query.eq('position', position);
@@ -110,31 +128,24 @@ export async function createExamSession({ durationMins = 30, series = null, posi
     throw new Error('Không có câu hỏi nào trong ngân hàng');
   }
   
-  // Phân loại câu hỏi theo điểm
   const questionsByScore = {
     5: allQuestions.filter(q => q.score === 5),
     10: allQuestions.filter(q => q.score === 10),
     20: allQuestions.filter(q => q.score === 20)
   };
   
-  // Số lượng câu cần lấy để đạt 100 điểm
-  // 50% câu 5 điểm = 50 điểm -> 10 câu
-  // 30% câu 10 điểm = 30 điểm -> 3 câu
-  // 20% câu 20 điểm = 20 điểm -> 1 câu
   const targetCounts = {
-    5: 10,  // 10 câu x 5 = 50 điểm
-    10: 3,  // 3 câu x 10 = 30 điểm
-    20: 1   // 1 câu x 20 = 20 điểm
+    5: 10,
+    10: 3,
+    20: 1
   };
   
-  // Kiểm tra đủ câu hỏi
   for (const [score, count] of Object.entries(targetCounts)) {
     if (questionsByScore[score].length < count) {
       throw new Error(`Không đủ câu hỏi ${score} điểm (cần ${count}, có ${questionsByScore[score].length})`);
     }
   }
   
-  // Hàm lấy ngẫu nhiên n câu
   function getRandomItems(arr, n) {
     const shuffled = [...arr];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -144,12 +155,10 @@ export async function createExamSession({ durationMins = 30, series = null, posi
     return shuffled.slice(0, n);
   }
   
-  // Lấy câu hỏi theo phân bố
   const selected5 = getRandomItems(questionsByScore[5], targetCounts[5]);
   const selected10 = getRandomItems(questionsByScore[10], targetCounts[10]);
   const selected20 = getRandomItems(questionsByScore[20], targetCounts[20]);
   
-  // Trộn tất cả câu hỏi
   const allSelected = [...selected5, ...selected10, ...selected20];
   for (let i = allSelected.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -162,7 +171,6 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   
   console.log(`Tạo đề thi: ${totalQuestions} câu, tổng điểm ${totalScore}`);
   
-  // Tạo session
   const { data: session, error: insertErr } = await supabase
     .from('exam_sessions')
     .insert({
@@ -201,14 +209,12 @@ export async function getSessionWithQuestions(sessionId) {
     .single();
   if (sErr) throw sErr;
   
-  // Lấy câu hỏi với tất cả các cột ngôn ngữ
   const { data: questions, error: qErr } = await supabase
     .from('questions_cache')
     .select('id, question_en, question_zh, question_vi, option_a, option_b, option_c, option_d, topic, difficulty, score, series, position')
     .in('id', session.question_ids);
   if (qErr) throw qErr;
   
-  // Sắp xếp theo thứ tự
   const ordered = session.question_ids.map(id => questions.find(q => q.id === id)).filter(Boolean);
   return { session, questions: ordered };
 }
