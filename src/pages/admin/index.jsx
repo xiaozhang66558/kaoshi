@@ -328,13 +328,14 @@ export default function AdminPage() {
             return (
               <div key={sub.id} className={styles.subCard}>
                 <div className={styles.subHeader}>
-                  <strong>{t('question')} {idx+1}:</strong> {q?.question || 'Câu hỏi không tồn tại'}
+                  <strong>{t('question')} {idx+1}:</strong> {getQuestionByLanguage(q)}
                 </div>
                 <div className={styles.subAnswer}>
                   <strong>{t('student_answer')}</strong>
                   <p className={styles.answerText}>{sub.user_answer || t('no_answer')}</p>
                 </div>
                 
+                {/* Phần còn lại giữ nguyên */}
                 {sub.image_urls && sub.image_urls.length > 0 && (
                   <div className={styles.answerImages}>
                     <strong>{t('images')}</strong>
@@ -353,6 +354,7 @@ export default function AdminPage() {
                   </div>
                 )}
                 
+                {/* 2 nút Đúng/Sai */}
                 <div className={styles.grading}>
                   <div className={styles.gradingButtons}>
                     <button 
@@ -372,12 +374,11 @@ export default function AdminPage() {
                     {t('point')}: {sub.score || 0} / {q?.score || 0}
                   </span>
                 </div>
-
+  
+                {/* Feedback section */}
                 {sub.feedback && (
                   <div className={styles.feedbackSection}>
-                    <div className={styles.feedbackHeader}>
-                      <span>📝 {t('examiner_feedback')}</span>
-                    </div>
+                    <div className={styles.feedbackHeader}>📝 {t('examiner_feedback')}</div>
                     <div className={styles.feedbackText}>{sub.feedback}</div>
                     {sub.feedback_images && sub.feedback_images.length > 0 && (
                       <div className={styles.feedbackImages}>
@@ -395,7 +396,8 @@ export default function AdminPage() {
                     )}
                   </div>
                 )}
-
+  
+                {/* Form thêm/sửa nhận xét */}
                 {activeSubmissionId === sub.id ? (
                   <div className={styles.feedbackForm}>
                     <textarea
