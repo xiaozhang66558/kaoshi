@@ -230,7 +230,8 @@ export default function AdminPage() {
                 <thead>
                   <tr>
                     <th>Thí sinh</th>
-                    <th>Email</th>
+                    <th>系列 (Series)</th>
+                    <th>岗位 (Position)</th>
                     <th>Thời gian nộp</th>
                     <th>Điểm</th>
                     <th>Trạng thái</th>
@@ -239,28 +240,24 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {sessions.map(s => {
-                    const totalScore = s.total_questions;
-                    const achievedScore = s.score || 0;
-                    const isFullyGraded = s.status === 'graded';
+                    // Lấy series và position từ câu hỏi đầu tiên (hoặc có thể lấy từ session)
+                    // Cách 1: Nếu bạn lưu series/position trong session khi tạo
+                    const series = s.series || '—';
+                    const position = s.position || '—';
                     
                     return (
                       <tr key={s.id}>
                         <td>{s.profiles?.full_name || s.user_id}</td>
-                        <td>{s.profiles?.email || ''}</td>
+                        <td>{series}</td>
+                        <td>{position}</td>
                         <td>{s.submitted_at ? new Date(s.submitted_at).toLocaleString() : 'Chưa nộp'}</td>
                         <td className={styles.scoreCell}>
-                          <span className={`${styles.scoreValue} ${isFullyGraded ? styles.scoreGraded : styles.scorePending}`}>
-                            {achievedScore}/{totalScore}
+                          <span className={`${styles.scoreValue} ${s.status === 'graded' ? styles.scoreGraded : styles.scorePending}`}>
+                            {s.score || 0}/{s.total_questions}
                           </span>
                         </td>
                         <td>
-                          {s.status === 'graded' ? (
-                            <span className={styles.badgeGraded}>✅ Đã chấm</span>
-                          ) : s.status === 'submitted' ? (
-                            <span className={styles.badgePending}>⏳ Chờ chấm</span>
-                          ) : (
-                            <span className={styles.badgeProgress}>📝 Đang thi</span>
-                          )}
+                          {s.status === 'graded' ? '✅ Đã chấm' : s.status === 'submitted' ? '⏳ Chờ chấm' : '📝 Đang thi'}
                         </td>
                         <td>
                           <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
