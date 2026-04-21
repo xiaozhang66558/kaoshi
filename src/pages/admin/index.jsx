@@ -10,7 +10,7 @@ const SYNC_URL = '/.netlify/functions/sync-questions';
 
 export default function AdminPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [sessions, setSessions] = useState([]);
   const [submittedSessions, setSubmittedSessions] = useState([]);
   const [total, setTotal] = useState(0);
@@ -27,6 +27,9 @@ export default function AdminPage() {
   const [positionOptions, setPositionOptions] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [showRankingModal, setShowRankingModal] = useState(false);
+  const [rankingData, setRankingData] = useState([]);
+  const [rankingLoading, setRankingLoading] = useState(false);
   const limit = 20;
 
   // State cho feedback
@@ -34,6 +37,14 @@ export default function AdminPage() {
   const [feedbackImages, setFeedbackImages] = useState([]);
   const [uploadingFeedback, setUploadingFeedback] = useState(false);
   const [activeSubmissionId, setActiveSubmissionId] = useState(null);
+
+  // Hàm lấy câu hỏi theo ngôn ngữ
+  const getQuestionByLanguage = (q) => {
+    if (!q) return 'Câu hỏi không tồn tại';
+    if (language === 'en') return q.question_en || q.question;
+    if (language === 'zh') return q.question_zh || q.question;
+    return q.question_vi || q.question;
+  };
 
   // Hàm format thời gian theo ngôn ngữ
   const formatDuration = (minutes, seconds) => {
@@ -44,6 +55,66 @@ export default function AdminPage() {
       return `${minutes}分${seconds}秒`;
     } else {
       return `${minutes} min ${seconds} sec`;
+    }
+  };
+
+  // Hàm tính xếp hạng thí sinh
+  const calculateRanking = async () => {
+    setRankingLoading(true);
+    try {
+      let query = supabase
+        .from('exam_sessions')
+        .select('*, profiles(full_name, email, username)')
+        .neq('status', 'in_progress');
+      
+      if (filterSeries) query = query.eq('series', filterSeries);
+      if (filterPosition) query = query.eq('position', filterPosition);
+      
+      const { data: sessions, error } = await query;
+      if (error) throw error;
+      
+      const userStats = new Map();
+      sessions.forEach(s => {
+        const userId = s.user_id;
+        const score = s.score || 0;
+        
+        if (!userStats.has(userId)) {
+          userStats.set(userId, {
+            user_id: userId,
+            full_name: s.profiles?.full_name || s.user_id,
+            username: s.profiles?.username,
+            email: s.profiles?.email,
+            totalScore: 0,
+            examCount: 0,
+            scores: []
+          });
+        }
+        
+        const stats = userStats.get(userId);
+        stats.totalScore += score;
+        stats.examCount++;
+        stats.scores.push(score);
+      });
+      
+      const ranking = Array.from(userStats.values())
+        .map(user => ({
+          ...user,
+          avgScore: user.totalScore / user.examCount,
+          avgScoreFormatted: (user.totalScore / user.examCount).toFixed(1)
+        }))
+        .sort((a, b) => b.avgScore - a.avgScore)
+        .map((user, index) => ({
+          ...user,
+          rank: index + 1
+        }));
+      
+      setRankingData(ranking);
+      setShowRankingModal(true);
+    } catch (err) {
+      console.error('Lỗi tính xếp hạng:', err);
+      alert('Không thể tính xếp hạng: ' + err.message);
+    } finally {
+      setRankingLoading(false);
     }
   };
 
@@ -335,7 +406,6 @@ export default function AdminPage() {
                   <p className={styles.answerText}>{sub.user_answer || t('no_answer')}</p>
                 </div>
                 
-                {/* Phần còn lại giữ nguyên */}
                 {sub.image_urls && sub.image_urls.length > 0 && (
                   <div className={styles.answerImages}>
                     <strong>{t('images')}</strong>
@@ -354,7 +424,6 @@ export default function AdminPage() {
                   </div>
                 )}
                 
-                {/* 2 nút Đúng/Sai */}
                 <div className={styles.grading}>
                   <div className={styles.gradingButtons}>
                     <button 
@@ -374,8 +443,7 @@ export default function AdminPage() {
                     {t('point')}: {sub.score || 0} / {q?.score || 0}
                   </span>
                 </div>
-  
-                {/* Feedback section */}
+
                 {sub.feedback && (
                   <div className={styles.feedbackSection}>
                     <div className={styles.feedbackHeader}>📝 {t('examiner_feedback')}</div>
@@ -396,8 +464,7 @@ export default function AdminPage() {
                     )}
                   </div>
                 )}
-  
-                {/* Form thêm/sửa nhận xét */}
+
                 {activeSubmissionId === sub.id ? (
                   <div className={styles.feedbackForm}>
                     <textarea
@@ -563,6 +630,13 @@ export default function AdminPage() {
               <option value="">{t('all_position')}</option>
               {positionOptions.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
+            <button 
+              className={styles.rankingBtn}
+              onClick={calculateRanking}
+              disabled={rankingLoading}
+            >
+              {rankingLoading ? '⏳ Đang tính...' : '🏆 排名'}
+            </button>
           </div>
         </div>
       )}
@@ -590,7 +664,7 @@ export default function AdminPage() {
                 <tbody>
                   {sessions.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className={styles.empty}>{t('no_exams')}</td>
+                      <td colSpan={9} className={styles.empty}>{t('no_exams')}<\/td>
                     </tr>
                   ) : (
                     sessions.map(s => {
@@ -663,7 +737,7 @@ export default function AdminPage() {
                               🗑️ {t('delete')}
                             </button>
                           </td>
-                        </tr>
+                        <tr>
                       );
                     })
                   )}
@@ -689,7 +763,7 @@ export default function AdminPage() {
                 <tbody>
                   {submittedSessions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className={styles.empty}>{t('no_pending')}</td>
+                      <td colSpan={7} className={styles.empty}>{t('no_pending')}<\/td>
                     </tr>
                   ) : (
                     submittedSessions.map(s => {
@@ -724,6 +798,62 @@ export default function AdminPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Modal xếp hạng */}
+      {showRankingModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowRankingModal(false)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h3>🏆 {t('ranking') || 'Bảng xếp hạng thí sinh'}</h3>
+              <button className={styles.modalClose} onClick={() => setShowRankingModal(false)}>×</button>
+            </div>
+            <div className={styles.modalBody}>
+              {rankingData.length === 0 ? (
+                <div className={styles.emptyRanking}>Chưa có dữ liệu</div>
+              ) : (
+                <table className={styles.rankingTable}>
+                  <thead>
+                    <tr>
+                      <th>{t('rank') || 'Hạng'}</th>
+                      <th>{t('student') || 'Thí sinh'}</th>
+                      <th>{t('username') || 'Tên đăng nhập'}</th>
+                      <th>{t('exam_count') || 'Số bài thi'}</th>
+                      <th>{t('avg_score') || 'Điểm TB'}</th>
+                      <th>{t('scores') || 'Các lần thi'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rankingData.map(user => (
+                      <tr key={user.user_id} className={user.rank <= 3 ? styles.topRank : ''}>
+                        <td className={styles.rankCell}>
+                          {user.rank === 1 && '🥇'}
+                          {user.rank === 2 && '🥈'}
+                          {user.rank === 3 && '🥉'}
+                          {user.rank > 3 && `${user.rank}`}
+                        </td>
+                        <td>{user.full_name}</td>
+                        <td>{user.username || '—'}</td>
+                        <td className={styles.centerCell}>{user.examCount}</td>
+                        <td className={styles.centerCell}>
+                          <span className={styles.avgScoreBadge}>{user.avgScoreFormatted}</span>
+                        </td>
+                        <td className={styles.scoresCell}>
+                          {user.scores.map((s, i) => (
+                            <span key={i} className={styles.scoreChip}>{s}</span>
+                          ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className={styles.modalFooter}>
+              <button className={styles.modalBtn} onClick={() => setShowRankingModal(false)}>Đóng</button>
+            </div>
+          </div>
+        </div>
       )}
 
       <Modal
