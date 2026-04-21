@@ -566,9 +566,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {sessions.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className={styles.empty}>{t('no_exams')}</td>
-                    </tr>
+                    <tr><td colSpan={7} className={styles.empty}>{t('no_exams')}</td></tr>
                   ) : (
                     sessions.map(s => {
                       const isFullyGraded = s.status === 'graded';
@@ -620,7 +618,7 @@ export default function AdminPage() {
                               🗑️ {t('delete')}
                             </button>
                           </td>
-                        </table>
+                        </tr>
                       );
                     })
                   )}
@@ -644,9 +642,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {submittedSessions.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className={styles.empty}>{t('no_pending')}</td>
-                    </tr>
+                    <tr><td colSpan={6} className={styles.empty}>{t('no_pending')}</td></tr>
                   ) : (
                     submittedSessions.map(s => (
                       <tr key={s.id}>
