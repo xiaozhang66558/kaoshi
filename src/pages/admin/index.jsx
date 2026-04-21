@@ -21,7 +21,7 @@ export default function AdminPage() {
   const [filterPosition, setFilterPosition] = useState('');
   const [seriesOptions, setSeriesOptions] = useState([]);
   const [positionOptions, setPositionOptions] = useState([]);
-
+  const limit = 20;
 
   // Lấy danh sách series và position để hiển thị trong dropdown
   async function loadFilterOptions() {
@@ -58,7 +58,7 @@ export default function AdminPage() {
       if (profile?.role !== 'admin') { router.replace('/exam'); return; }
       fetchData();
     });
-  }, [page, tab]);
+  }, [page, tab, filterSeries, filterPosition, searchName]);
 
   async function fetchData() {
     setLoading(true);
@@ -141,7 +141,7 @@ export default function AdminPage() {
     }
   }
 
-  {/* Chi tiết bài thi với 2 nút Đúng/Sai */}
+  // Chi tiết bài thi với 2 nút Đúng/Sai
   if (detail && !detail.loading) {
     const { session, submissions } = detail;
     const totalPossible = submissions.reduce((sum, s) => sum + (s.questions_cache?.score || 0), 0);
@@ -268,7 +268,7 @@ export default function AdminPage() {
         </div>
       </header>
       
-            {/* Tabs */}
+      {/* Tabs */}
       <div className={styles.tabs}>
         <button className={tab === 'all' ? styles.activeTab : ''} onClick={() => { setTab('all'); setPage(1); }}>
           📋 Tất cả bài thi
@@ -438,3 +438,6 @@ export default function AdminPage() {
           )}
         </>
       )}
+    </div>
+  );
+}
