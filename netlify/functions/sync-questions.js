@@ -29,9 +29,8 @@ exports.handler = async (event) => {
     const rows = sheetsData.values || [];
 
     const questions = rows
-      .filter(row => row.length >= 4 && row[2]) // cần có câu hỏi tiếng Anh
+      .filter(row => row.length >= 4 && row[2])
       .map((row, idx) => {
-        // Chuyển đổi difficulty từ số sang text
         const diffValue = String(row[6] || '1').trim();
         let difficulty = 'medium';
         if (diffValue === '1') difficulty = 'easy';
@@ -62,19 +61,20 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Xóa dữ liệu cũ và insert mới
-    const { error: deleteError } = await supabase
+    // 1. Cập nhật is_active = false cho tất cả câu hỏi hiện tại
+    const { error: updateError } = await supabase
       .from('questions_cache')
-      .delete()
+      .update({ is_active: false })
       .neq('id', '00000000-0000-0000-0000-000000000000');
     
-    if (deleteError) throw deleteError;
+    if (updateError) throw updateError;
 
-    const { error: insertError } = await supabase
+    // 2. Insert câu hỏi mới (nếu sheet_row_id đã tồn tại thì update)
+    const { error: upsertError } = await supabase
       .from('questions_cache')
-      .insert(questions);
+      .upsert(questions, { onConflict: 'sheet_row_id' });
     
-    if (insertError) throw insertError;
+    if (upsertError) throw upsertError;
 
     console.log(`[sync-questions] Đã đồng bộ ${questions.length} câu hỏi với 3 ngôn ngữ`);
 
