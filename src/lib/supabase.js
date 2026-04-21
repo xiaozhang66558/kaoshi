@@ -101,14 +101,16 @@ export async function createExamSession({ numQuestions = 10, durationMins = 30, 
   }
   const selectedIds = shuffled.slice(0, numQuestions).map(q => q.id);
 
-  const { data: session, error: insertErr } = await client
+  const { data: session, error: insertErr } = await supabase
     .from('exam_sessions')
     .insert({
       user_id: user.id,
       question_ids: selectedIds,
       duration_minutes: durationMins,
       total_questions: numQuestions,
-      status: 'in_progress'
+      status: 'in_progress',
+      series: series,      // ← THÊM DÒNG NÀY
+      position: position   // ← THÊM DÒNG NÀY
     })
     .select()
     .single();
