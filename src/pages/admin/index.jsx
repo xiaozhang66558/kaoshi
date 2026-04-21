@@ -64,24 +64,43 @@ export default function AdminPage() {
     setLoading(true);
     try {
       if (tab === 'all') {
+        // Lấy tất cả session (không join)
         let query = supabase
           .from('exam_sessions')
-          .select('*, profiles(full_name, email, username)', { count: 'exact' })
-          .neq('status', 'in_progress');
+          .select('*')
+          .neq('status', 'in_progress')
+          .order('submitted_at', { ascending: false });
         
-        // Áp dụng bộ lọc series và position
-        if (filterSeries) query = query.eq('series', filterSeries);
-        if (filterPosition) query = query.eq('position', filterPosition);
-        
-        // Phân trang
-        const from = (page - 1) * limit;
-        query = query.order('submitted_at', { ascending: false }).range(from, from + limit - 1);
-        
-        const { data, error, count } = await query;
+        const { data: sessions, error } = await query;
         if (error) throw error;
         
-        // Lọc theo tên thí sinh (client-side vì profiles đã được join)
-        let filteredData = data || [];
+        console.log('Sessions:', sessions);
+        
+        // Lấy thông tin profiles riêng
+        const userIds = [...new Set(sessions.map(s => s.user_id).filter(Boolean))];
+        let profileMap = {};
+        
+        if (userIds.length > 0) {
+          const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, username')
+            .in('id', userIds);
+          
+          if (!profileError && profiles) {
+            profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+          }
+        }
+        
+        // Gắn profiles vào từng session
+        const sessionsWithProfiles = sessions.map(s => ({
+          ...s,
+          profiles: profileMap[s.user_id] || null
+        }));
+        
+        // Lọc theo series, position, searchName
+        let filteredData = sessionsWithProfiles;
+        if (filterSeries) filteredData = filteredData.filter(s => s.series === filterSeries);
+        if (filterPosition) filteredData = filteredData.filter(s => s.position === filterPosition);
         if (searchName) {
           filteredData = filteredData.filter(s => 
             s.profiles?.full_name?.toLowerCase().includes(searchName.toLowerCase()) ||
@@ -90,13 +109,41 @@ export default function AdminPage() {
         }
         
         setSessions(filteredData);
-        setTotal(count);
+        setTotal(filteredData.length);
       } else {
-        const data = await getSubmittedSessions();
-        setSubmittedSessions(data);
+        // Tương tự cho submittedSessions
+        const { data: sessions, error } = await supabase
+          .from('exam_sessions')
+          .select('*')
+          .eq('status', 'submitted')
+          .order('submitted_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        const userIds = [...new Set(sessions.map(s => s.user_id).filter(Boolean))];
+        let profileMap = {};
+        
+        if (userIds.length > 0) {
+          const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, username')
+            .in('id', userIds);
+          
+          if (!profileError && profiles) {
+            profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+          }
+        }
+        
+        const sessionsWithProfiles = sessions.map(s => ({
+          ...s,
+          profiles: profileMap[s.user_id] || null
+        }));
+        
+        setSubmittedSessions(sessionsWithProfiles);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Fetch error:', err);
+      alert('Lỗi tải dữ liệu: ' + err.message);
     } finally {
       setLoading(false);
     }
