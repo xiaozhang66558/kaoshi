@@ -244,22 +244,26 @@ export async function getAllSessions({ page = 1, limit = 20 } = {}) {
   
   const { data: sessions, error, count } = await supabase
     .from('exam_sessions')
-    .select('*', { count: 'exact' })
+    .select('*, graded_by', { count: 'exact' })
     .neq('status', 'in_progress')
     .order('submitted_at', { ascending: false })
     .range(from, from + limit - 1);
   if (error) throw error;
   
   const userIds = [...new Set(sessions.map(s => s.user_id).filter(Boolean))];
-  if (userIds.length > 0) {
+  const graderIds = [...new Set(sessions.map(s => s.graded_by).filter(Boolean))];
+  const allIds = [...new Set([...userIds, ...graderIds])];
+  
+  if (allIds.length > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, full_name, email, username')
-      .in('id', userIds);
+      .in('id', allIds);
     if (profiles) {
       const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
       sessions.forEach(s => {
         s.profiles = profileMap[s.user_id] || null;
+        s.grader_profile = profileMap[s.graded_by] || null;
       });
     }
   }
