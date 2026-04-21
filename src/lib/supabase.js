@@ -26,47 +26,64 @@ export async function signUp(username, password, fullName) {
 }
 
 export async function signInWithUsername(username, password) {
-  console.log('Đang đăng nhập với username:', username);
-  
-  // Kiểm tra supabase có hoạt động không
-  if (!supabase) {
-    throw new Error('Supabase chưa được khởi tạo');
+  try {
+    console.log('1. Đang tìm username:', username);
+    
+    // Tìm profile theo username
+    const { data: profiles, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, username, role')
+      .eq('username', username);
+    
+    console.log('2. Kết quả tìm profiles:', profiles);
+    
+    if (profileError) {
+      console.error('3. Lỗi:', profileError);
+      throw new Error('Lỗi truy vấn: ' + profileError.message);
+    }
+    
+    if (!profiles || profiles.length === 0) {
+      console.log('4. Không tìm thấy username');
+      throw new Error('Tên đăng nhập không tồn tại');
+    }
+    
+    const profile = profiles[0];
+    console.log('5. Tìm thấy profile:', profile);
+    
+    // Đăng nhập bằng email
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: profile.email,
+      password: password,
+    });
+    
+    if (authError) {
+      console.error('6. Lỗi đăng nhập:', authError);
+      throw new Error('Sai mật khẩu');
+    }
+    
+    console.log('7. Đăng nhập thành công!');
+    return authData;
+    
+  } catch (err) {
+    console.error('SignIn error:', err);
+    throw err;
   }
-  
-  // Thử query bằng eq và select đơn giản
+}
+
+export async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+  return true;
+}
+
+export async function getProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('username', username);
-  
-  console.log('Kết quả query:', { data, error });
-  
-  if (error) {
-    console.error('Lỗi query:', error);
-    throw new Error('Lỗi kết nối database: ' + error.message);
-  }
-  
-  if (!data || data.length === 0) {
-    console.log('Không tìm thấy username:', username);
-    throw new Error('Tên đăng nhập không tồn tại');
-  }
-  
-  const profile = data[0];
-  console.log('Tìm thấy profile:', profile);
-  
-  // Đăng nhập bằng email
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-    email: profile.email,
-    password: password,
-  });
-  
-  if (authError) {
-    console.error('Lỗi đăng nhập:', authError);
-    throw new Error('Sai mật khẩu');
-  }
-  
-  console.log('Đăng nhập thành công!');
-  return authData;
+    .eq('id', userId)
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 // ========== EXAM ==========
