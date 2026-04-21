@@ -278,7 +278,8 @@ export default function AdminPage() {
                 <thead>
                   <tr>
                     <th>Thí sinh</th>
-                    <th>Email</th>
+                    <th>系列 (Series)</th>
+                    <th>岗位 (Position)</th>
                     <th>Thời gian nộp</th>
                     <th>Điểm</th>
                     <th>Hành động</th>
@@ -288,7 +289,8 @@ export default function AdminPage() {
                   {submittedSessions.map(s => (
                     <tr key={s.id}>
                       <td>{s.profiles?.full_name || s.user_id}</td>
-                      <td>{s.profiles?.email || ''}</td>
+                      <td>{s.series || '—'}</td>
+                      <td>{s.position || '—'}</td>
                       <td>{new Date(s.submitted_at).toLocaleString()}</td>
                       <td className={styles.scoreCell}>
                         <span className={styles.scorePending}>{(s.score || 0)}/{s.total_questions}</span>
@@ -300,9 +302,6 @@ export default function AdminPage() {
                       </td>
                     </tr>
                   ))}
-                  {submittedSessions.length === 0 && (
-                    <tr><td colSpan={5} className={styles.empty}>🎉 Không có bài thi nào chờ chấm!</td></tr>
-                  )}
                 </tbody>
               </table>
             </div>
