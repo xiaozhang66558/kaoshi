@@ -672,7 +672,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {submittedSessions.length === 0 ? (
-                    <td><td colSpan={7} className={styles.empty}>{t('no_pending')}</td></tr>
+                    <tr><td colSpan={7} className={styles.empty}>{t('no_pending')}</td></tr>
                   ) : (
                     submittedSessions.map(s => {
                       let examDuration = '—';
@@ -690,9 +690,7 @@ export default function AdminPage() {
                           <td className={styles.timeCell}>
                             {new Date(s.submitted_at).toLocaleString()}
                           </td>
-                          <td className={styles.timeCell}>
-                            {examDuration}
-                          </td>
+                          <td className={styles.timeCell}>{examDuration}</td>
                           <td className={styles.centerCell}>
                             <span className={styles.scorePending}>{(s.score || 0)}/100</span>
                           </td>
@@ -709,8 +707,6 @@ export default function AdminPage() {
               </table>
             </div>
           )}
-        </>
-      )}
 
       <Modal
         isOpen={showDeleteModal}
