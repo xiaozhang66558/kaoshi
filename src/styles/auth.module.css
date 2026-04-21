@@ -295,3 +295,8 @@
     padding: 0.7rem 1rem;
   }
 }
+  .languageWrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+  }
