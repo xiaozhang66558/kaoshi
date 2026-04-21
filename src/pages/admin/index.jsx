@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { supabase, getProfile, getAllSessions, getSessionDetail, getSubmittedSessions, gradeSubmission } from '../../lib/supabase';
+import { supabase, getProfile, getAllSessions, getSessionDetail, getSubmittedSessions, gradeSubmission, saveFeedback } from '../../lib/supabase';
 import Modal from '../../components/Modal';
 import styles from '../../styles/admin.module.css';
 
@@ -25,6 +25,12 @@ export default function AdminPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const limit = 20;
+
+  // State cho feedback
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackImages, setFeedbackImages] = useState([]);
+  const [uploadingFeedback, setUploadingFeedback] = useState(false);
+  const [activeSubmissionId, setActiveSubmissionId] = useState(null);
 
   // Lấy danh sách series và position để hiển thị trong dropdown
   async function loadFilterOptions() {
@@ -67,7 +73,6 @@ export default function AdminPage() {
     setLoading(true);
     try {
       if (tab === 'all') {
-        // Lấy tất cả session (không join)
         let query = supabase
           .from('exam_sessions')
           .select('*')
@@ -79,7 +84,6 @@ export default function AdminPage() {
         
         console.log('Sessions:', sessions);
         
-        // Lấy thông tin profiles riêng
         const userIds = [...new Set(sessions.map(s => s.user_id).filter(Boolean))];
         let profileMap = {};
         
@@ -94,13 +98,11 @@ export default function AdminPage() {
           }
         }
         
-        // Gắn profiles vào từng session
         const sessionsWithProfiles = sessions.map(s => ({
           ...s,
           profiles: profileMap[s.user_id] || null
         }));
         
-        // Lọc theo series, position, searchName
         let filteredData = sessionsWithProfiles;
         if (filterSeries) filteredData = filteredData.filter(s => s.series === filterSeries);
         if (filterPosition) filteredData = filteredData.filter(s => s.position === filterPosition);
@@ -114,7 +116,6 @@ export default function AdminPage() {
         setSessions(filteredData);
         setTotal(filteredData.length);
       } else {
-        // Tương tự cho submittedSessions
         const { data: sessions, error } = await supabase
           .from('exam_sessions')
           .select('*')
@@ -168,14 +169,12 @@ export default function AdminPage() {
     if (!deleteTarget) return;
     
     try {
-      // Xóa submissions trước
       const { error: subError } = await supabase
         .from('submissions')
         .delete()
         .eq('session_id', deleteTarget.sessionId);
       if (subError) throw subError;
       
-      // Xóa session
       const { error: sessionError } = await supabase
         .from('exam_sessions')
         .delete()
@@ -220,7 +219,77 @@ export default function AdminPage() {
     }
   }
 
-  // Chi tiết bài thi với 2 nút Đúng/Sai
+  // Hàm xử lý dán ảnh cho feedback
+  const handlePasteFeedbackImage = async (event) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    
+    const imageItems = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        imageItems.push(items[i]);
+      }
+    }
+    
+    if (imageItems.length === 0) return;
+    
+    if (feedbackImages.length + imageItems.length > 3) {
+      alert('⚠️ Chỉ được dán tối đa 3 ảnh mỗi nhận xét!');
+      return;
+    }
+    
+    setUploadingFeedback(true);
+    const newImageUrls = [...feedbackImages];
+    
+    for (const item of imageItems) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      
+      const fileName = `feedback_${Date.now()}_${Math.random().toString(36).substring(2)}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from('exam-images')
+        .upload(fileName, file);
+      
+      if (uploadError) {
+        console.error('Upload lỗi:', uploadError);
+        continue;
+      }
+      
+      const { data: urlData } = supabase.storage
+        .from('exam-images')
+        .getPublicUrl(fileName);
+      
+      newImageUrls.push(urlData.publicUrl);
+    }
+    
+    setFeedbackImages(newImageUrls);
+    setUploadingFeedback(false);
+  };
+
+  const removeFeedbackImage = (index) => {
+    setFeedbackImages(feedbackImages.filter((_, i) => i !== index));
+  };
+
+  const saveFeedbackToDb = async (submissionId) => {
+    if (!feedbackText.trim() && feedbackImages.length === 0) {
+      alert('Vui lòng nhập nhận xét hoặc thêm ảnh');
+      return;
+    }
+    
+    try {
+      await saveFeedback(submissionId, feedbackText, feedbackImages);
+      alert('✅ Đã lưu nhận xét!');
+      setFeedbackText('');
+      setFeedbackImages([]);
+      setActiveSubmissionId(null);
+      const updated = await getSessionDetail(detail.session.id);
+      setDetail(updated);
+    } catch (err) {
+      alert('❌ Lỗi lưu nhận xét: ' + err.message);
+    }
+  };
+
+  // Chi tiết bài thi với 2 nút Đúng/Sai và feedback
   if (detail && !detail.loading) {
     const { session, submissions } = detail;
     const totalPossible = submissions.reduce((sum, s) => sum + (s.questions_cache?.score || 0), 0);
@@ -254,7 +323,7 @@ export default function AdminPage() {
                   <p className={styles.answerText}>{sub.user_answer || '(chưa có câu trả lời)'}</p>
                 </div>
                 
-                {/* Hiển thị ảnh - bấm vào để xem to */}
+                {/* Hiển thị ảnh thí sinh */}
                 {sub.image_urls && sub.image_urls.length > 0 && (
                   <div className={styles.answerImages}>
                     <strong>Ảnh đính kèm:</strong>
@@ -293,6 +362,105 @@ export default function AdminPage() {
                     Điểm: {sub.score || 0} / {q?.score || 0}
                   </span>
                 </div>
+
+                {/* Hiển thị feedback đã có */}
+                {sub.feedback && (
+                  <div className={styles.feedbackSection}>
+                    <div className={styles.feedbackHeader}>
+                      <span>📝 Nhận xét của giám khảo:</span>
+                    </div>
+                    <div className={styles.feedbackText}>{sub.feedback}</div>
+                    {sub.feedback_images && sub.feedback_images.length > 0 && (
+                      <div className={styles.feedbackImages}>
+                        {sub.feedback_images.map((url, i) => (
+                          <img 
+                            key={i} 
+                            src={url} 
+                            alt={`feedback ${i+1}`} 
+                            className={styles.thumbImage}
+                            onClick={() => setLightboxImage(url)}
+                            style={{ cursor: 'pointer' }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Form thêm/sửa nhận xét */}
+                {activeSubmissionId === sub.id ? (
+                  <div className={styles.feedbackForm}>
+                    <textarea
+                      className={styles.feedbackTextarea}
+                      rows={3}
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                      onPaste={handlePasteFeedbackImage}
+                      placeholder="Nhập nhận xét cho câu trả lời này..."
+                    />
+                    <div className={styles.feedbackImagesContainer}>
+                      <div className={styles.feedbackImagesGrid}>
+                        {[0, 1, 2].map((idx) => {
+                          const imageUrl = feedbackImages[idx];
+                          return (
+                            <div 
+                              key={idx} 
+                              className={`${styles.feedbackImageCard} ${imageUrl ? styles.hasImage : ''}`}
+                            >
+                              {imageUrl ? (
+                                <>
+                                  <img src={imageUrl} alt={`feedback ${idx+1}`} />
+                                  <button
+                                    className={styles.removeImageBtn}
+                                    onClick={() => removeFeedbackImage(idx)}
+                                  >
+                                    ✕
+                                  </button>
+                                </>
+                              ) : (
+                                <div className={styles.imagePlaceholder}>
+                                  <span>🖼️</span>
+                                  <span>Chưa có ảnh</span>
+                                  <span className={styles.imageHint}>(Ctrl+V để dán)</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {uploadingFeedback && <span className={styles.uploadingText}>⏳ Đang tải ảnh...</span>}
+                    </div>
+                    <div className={styles.feedbackActions}>
+                      <button 
+                        className={styles.saveFeedbackBtn} 
+                        onClick={() => saveFeedbackToDb(sub.id)}
+                      >
+                        💾 Lưu nhận xét
+                      </button>
+                      <button 
+                        className={styles.cancelFeedbackBtn} 
+                        onClick={() => {
+                          setActiveSubmissionId(null);
+                          setFeedbackText('');
+                          setFeedbackImages([]);
+                        }}
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button 
+                    className={styles.addFeedbackBtn}
+                    onClick={() => {
+                      setActiveSubmissionId(sub.id);
+                      setFeedbackText(sub.feedback || '');
+                      setFeedbackImages(sub.feedback_images || []);
+                    }}
+                  >
+                    ✏️ {sub.feedback ? 'Sửa nhận xét' : 'Thêm nhận xét'}
+                  </button>
+                )}
               </div>
             );
           })}
