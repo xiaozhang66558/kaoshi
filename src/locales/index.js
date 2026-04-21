@@ -32,7 +32,7 @@ const locales = {
     wrong_password: 'Sai mật khẩu',
     register_success: 'Đăng ký thành công! Bạn có thể đăng nhập ngay.',
 
-    // Thêm vào phần vi
+    // Statistics
     exam_statistics: 'Thống kê bài thi',
     total_exams: 'Tổng số bài thi',
     avg_score_label: 'Điểm trung bình',
@@ -45,6 +45,10 @@ const locales = {
     exams_count: 'bài',
     other: 'Khác',
     time_format: '{minutes} phút {seconds} giây',
+    
+    // Table Columns
+    exam_duration: 'Thời gian làm bài',
+    grader: 'Người chấm',
         
     // Exam Page - Select
     select_questions: 'Chọn bộ câu hỏi',
@@ -169,7 +173,7 @@ const locales = {
     wrong_password: '密码错误',
     register_success: '注册成功！您现在可以登录了。',
 
-    // Thêm vào phần zh
+    // Statistics
     exam_statistics: '考试统计',
     total_exams: '考试总数',
     avg_score_label: '平均分',
@@ -182,6 +186,10 @@ const locales = {
     exams_count: '份',
     other: '其他',
     time_format: '{minutes}分{seconds}秒',
+    
+    // Table Columns
+    exam_duration: '答题时间',
+    grader: '评分人',
     
     // Exam Page - Select
     select_questions: '选择试题',
@@ -306,7 +314,7 @@ const locales = {
     wrong_password: 'Wrong password',
     register_success: 'Registration successful! You can now log in.',
 
-    // Thêm vào phần en
+    // Statistics
     exam_statistics: 'Exam Statistics',
     total_exams: 'Total Exams',
     avg_score_label: 'Average Score',
@@ -319,7 +327,11 @@ const locales = {
     exams_count: 'exams',
     other: 'Other',
     time_format: '{minutes} min {seconds} sec',
-        
+    
+    // Table Columns
+    exam_duration: 'Exam Duration',
+    grader: 'Grader',
+    
     // Exam Page - Select
     select_questions: 'Select Question Set',
     select_series: 'Series',
