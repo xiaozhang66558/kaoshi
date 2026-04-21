@@ -141,7 +141,7 @@ export default function HistoryPage() {
               <div key={session.id} className={styles.historyCard}>
                 <div className={styles.cardHeader} onClick={() => toggleSessionDetail(session.id)}>
                   <div className={styles.cardInfo}>
-                    <span className={styles.cardNumber}>{t('exam_no', { number: idx + 1 })}</span>
+                    <span className={styles.cardNumber}>{t('exam_no')} #{idx + 1}</span>
                     <span className={styles.cardDate}>
                       {new Date(session.submitted_at).toLocaleString()}
                     </span>
