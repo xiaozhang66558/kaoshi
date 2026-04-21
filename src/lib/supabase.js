@@ -39,34 +39,39 @@ export async function signUp(username, password, fullName) {
 }
 
 export async function signInWithUsername(username, password) {
-  const client = checkSupabase();
-  const { data: profile, error: profileError } = await client
+  console.log('Đang đăng nhập với username:', username);
+  
+  // Tìm profile theo username
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('email')
+    .select('id, email, username, role')
     .eq('username', username)
-    .single();
-  if (profileError || !profile) throw new Error('Tên đăng nhập không tồn tại');
-  const { data, error } = await client.auth.signInWithPassword({
+    .maybeSingle(); // dùng maybeSingle thay vì single để không bị lỗi khi không tìm thấy
+  
+  console.log('Profile tìm thấy:', profile);
+  console.log('Lỗi:', profileError);
+  
+  if (profileError) {
+    console.error('Lỗi tìm profile:', profileError);
+    throw new Error('Lỗi hệ thống: ' + profileError.message);
+  }
+  
+  if (!profile) {
+    throw new Error('Tên đăng nhập không tồn tại');
+  }
+  
+  // Đăng nhập bằng email
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: profile.email,
     password: password,
   });
-  if (error) throw error;
-  return data;
-}
-
-export async function signOut() {
-  if (!supabase) return;
-  await supabase.auth.signOut();
-}
-
-export async function getProfile(userId) {
-  const client = checkSupabase();
-  const { data, error } = await client
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
-  if (error) throw error;
+  
+  if (error) {
+    console.error('Lỗi đăng nhập:', error);
+    throw new Error('Sai mật khẩu hoặc tài khoản chưa được xác nhận');
+  }
+  
+  console.log('Đăng nhập thành công:', data);
   return data;
 }
 
