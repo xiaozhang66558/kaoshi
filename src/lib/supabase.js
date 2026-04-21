@@ -28,21 +28,24 @@ export async function signUp(username, password, fullName) {
 export async function signInWithUsername(username, password) {
   console.log('Đang đăng nhập với username:', username);
   
-  // Tìm profile theo username
+  // Tìm profile theo username - dùng maybeSingle để không bị lỗi 0 rows
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('id, email, username, role')
     .eq('username', username)
-    .single();
+    .maybeSingle();
   
   if (profileError) {
     console.error('Lỗi tìm profile:', profileError);
-    throw new Error('Tên đăng nhập không tồn tại');
+    throw new Error('Lỗi hệ thống: ' + profileError.message);
   }
   
   if (!profile) {
+    console.log('Không tìm thấy username:', username);
     throw new Error('Tên đăng nhập không tồn tại');
   }
+  
+  console.log('Tìm thấy profile:', profile);
   
   // Đăng nhập bằng email
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -56,20 +59,6 @@ export async function signInWithUsername(username, password) {
   }
   
   console.log('Đăng nhập thành công:', data.user.email);
-  return data;
-}
-
-export async function signOut() {
-  await supabase.auth.signOut();
-}
-
-export async function getProfile(userId) {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
-  if (error) throw error;
   return data;
 }
 
