@@ -4,110 +4,309 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
 }
 
 .spinner {
   width: 40px;
   height: 40px;
   border: 3px solid rgba(255,255,255,0.3);
-  border-top-color: white;
+  border-top-color: #4f46e5;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.startCard, .resultCard {
-  background: white;
+/* Select Page (màn hình chọn series/position) */
+.selectPage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  padding: 1rem;
+}
+
+.selectContainer {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 32px;
   padding: 2rem;
-  border-radius: 1rem;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  animation: fadeInUp 0.5s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selectHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.selectIcon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.selectTitle {
+  font-size: 1.8rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+
+.selectSubtitle {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.selectForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.selectGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.selectLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.labelIcon {
+  font-size: 1rem;
+}
+
+.selectWrapper {
+  position: relative;
+}
+
+.selectInput {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 16px;
+  font-size: 1rem;
+  background: #f8fafc;
+  cursor: pointer;
+  appearance: none;
+  transition: all 0.2s ease;
+  color: #1e293b;
+}
+
+.selectInput:hover {
+  border-color: #cbd5e1;
+  background: white;
+}
+
+.selectInput:focus {
+  outline: none;
+  border-color: #4f46e5;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.selectInput:disabled {
+  background: #f1f5f9;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.selectArrow {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 0.7rem;
+  pointer-events: none;
+}
+
+.startExamBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  padding: 0.85rem;
+  border-radius: 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0.5rem;
+}
+
+.startExamBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
+}
+
+.startExamBtn:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.backHomeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: #64748b;
+  border: 2px solid #e2e8f0;
+  padding: 0.75rem;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 0.25rem;
+}
+
+.backHomeBtn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.startCard, .resultCard {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 2rem;
+  border-radius: 32px;
   width: 90%;
   max-width: 400px;
   text-align: center;
-}
-.selectGroup {
-  margin-bottom: 1rem;
-  text-align: left;
-}
-.selectGroup label {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-weight: 500;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
 .startBtn {
   width: 100%;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  background: #4f46e5;
+  padding: 0.85rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
   color: white;
   border: none;
   margin-top: 0.5rem;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s;
 }
+
 .startBtn:hover {
-  background: #4338ca;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
 }
 
 /* Exam Page */
 .examPage {
   min-height: 100vh;
-  background: #f3f4f6;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
   display: flex;
   flex-direction: column;
 }
 
 /* Header */
 .header {
-  background: white;
-  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 0.75rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   position: sticky;
   top: 0;
   z-index: 10;
 }
+
 .headerLeft {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
+
 .logo {
   font-weight: bold;
-  color: #4f46e5;
+  font-size: 1.2rem;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
+
 .progress {
-  background: #e5e7eb;
+  background: rgba(0, 0, 0, 0.05);
   padding: 0.25rem 0.75rem;
-  border-radius: 999px;
+  border-radius: 40px;
   font-size: 0.875rem;
+  color: #475569;
 }
+
 .saving {
   font-size: 1rem;
 }
+
 .timer {
   font-weight: bold;
-  background: #f3f4f6;
-  padding: 0.25rem 1rem;
-  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.5rem 1rem;
+  border-radius: 40px;
+  color: #1e293b;
 }
+
 .timerLow {
-  background: #fee2e2;
-  color: #dc2626;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  animation: pulse 1s infinite;
 }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 .submitBtn {
-  background: #ef4444;
+  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
   color: white;
   border: none;
-  padding: 0.4rem 1rem;
-  border-radius: 999px;
+  padding: 0.5rem 1.25rem;
+  border-radius: 40px;
   cursor: pointer;
   font-weight: 500;
+  transition: all 0.2s;
 }
+
 .submitBtn:hover {
-  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
 /* Body */
@@ -115,7 +314,7 @@
   display: flex;
   gap: 1.5rem;
   padding: 1.5rem;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
 }
@@ -123,20 +322,22 @@
 /* Question Panel */
 .questionPanel {
   flex: 3;
-  background: white;
-  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 24px;
   padding: 1.5rem;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 /* Khung câu hỏi */
 .questionBox {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 1rem;
+  border-radius: 20px;
   padding: 1.25rem;
   margin-bottom: 1.5rem;
   border: 1px solid #e2e8f0;
 }
+
 .questionHeader {
   display: flex;
   gap: 0.75rem;
@@ -146,59 +347,68 @@
   padding-bottom: 0.75rem;
   border-bottom: 1px dashed #cbd5e1;
 }
+
 .qNumber {
   font-weight: bold;
-  background: #4f46e5;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
   color: white;
   padding: 0.2rem 0.75rem;
-  border-radius: 999px;
+  border-radius: 40px;
   font-size: 0.875rem;
 }
+
 .qTotal {
   font-size: 0.875rem;
   color: #64748b;
 }
+
 .qDiff {
   padding: 0.2rem 0.75rem;
-  border-radius: 999px;
+  border-radius: 40px;
   font-size: 0.7rem;
   font-weight: 600;
 }
+
 .qDiff.easy { background: #dcfce7; color: #166534; }
 .qDiff.medium { background: #fef9c3; color: #854d0e; }
 .qDiff.hard { background: #fee2e2; color: #b91c1c; }
+
 .qScore {
   background: #e0e7ff;
   color: #3730a3;
   padding: 0.2rem 0.75rem;
-  border-radius: 999px;
+  border-radius: 40px;
   font-size: 0.7rem;
   font-weight: 500;
 }
+
 .questionText {
   font-size: 1rem;
   line-height: 1.5;
   color: #1e293b;
 }
+
 .questionText p {
   margin: 0;
   font-weight: 500;
 }
 
-/* Khung câu trả lời - căn giữa */
+/* Khung câu trả lời */
 .answerBox {
   background: white;
-  border-radius: 1rem;
+  border-radius: 20px;
   padding: 1.25rem;
   margin-bottom: 1.5rem;
   border: 2px solid #e2e8f0;
   transition: all 0.2s;
   text-align: center;
 }
+
 .answerBox:focus-within {
   border-color: #4f46e5;
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
+
 .answerHeader {
   display: flex;
   justify-content: center;
@@ -209,11 +419,13 @@
   color: #334155;
   flex-wrap: wrap;
 }
+
 .answerHint {
   font-size: 0.7rem;
   font-weight: normal;
   color: #94a3b8;
 }
+
 .answerTextarea {
   width: 100%;
   max-width: 600px;
@@ -221,17 +433,19 @@
   display: block;
   padding: 0.75rem;
   border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
+  border-radius: 16px;
   font-size: 0.95rem;
   font-family: inherit;
   resize: vertical;
   background: #fafbfc;
 }
+
 .answerTextarea:focus {
   outline: none;
   border-color: #4f46e5;
   background: white;
 }
+
 .uploadingText {
   font-size: 0.7rem;
   color: #64748b;
@@ -239,21 +453,23 @@
   text-align: center;
 }
 
-/* Khung ảnh - 3 khung cố định */
+/* Khung ảnh */
 .imagesBox {
   margin-top: 1rem;
   padding: 1rem;
   background: #f8fafc;
-  border-radius: 0.75rem;
+  border-radius: 16px;
   border: 1px dashed #cbd5e1;
   text-align: center;
 }
+
 .imagesHeader {
   font-size: 0.75rem;
   font-weight: 500;
   color: #475569;
   margin-bottom: 0.75rem;
 }
+
 .imagesGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -261,19 +477,22 @@
   max-width: 400px;
   margin: 0 auto;
 }
+
 .imageCard {
   position: relative;
   aspect-ratio: 1;
   background: #f1f5f9;
   border: 2px dashed #cbd5e1;
-  border-radius: 0.75rem;
+  border-radius: 16px;
   overflow: hidden;
   transition: all 0.2s;
 }
+
 .imageCard.hasImage {
   border: 2px solid #e2e8f0;
   background: white;
 }
+
 .imagePlaceholder {
   display: flex;
   flex-direction: column;
@@ -284,19 +503,23 @@
   font-size: 0.7rem;
   gap: 0.25rem;
 }
+
 .imagePlaceholder span:first-child {
   font-size: 1.5rem;
 }
+
 .imageHint {
   font-size: 0.6rem;
   color: #94a3b8;
   margin-top: 0.25rem;
 }
+
 .imageCard img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
 .removeImageBtn {
   position: absolute;
   top: 4px;
@@ -314,6 +537,7 @@
   justify-content: center;
   z-index: 10;
 }
+
 .removeImageBtn:hover {
   background: #ef4444;
 }
@@ -327,28 +551,36 @@
   padding-top: 1rem;
   border-top: 1px solid #e5e7eb;
 }
+
 .navPrev, .navNext {
   background: #e5e7eb;
   border: none;
   padding: 0.5rem 1.25rem;
-  border-radius: 999px;
+  border-radius: 40px;
   cursor: pointer;
   font-weight: 500;
+  transition: all 0.2s;
 }
+
 .navPrev:hover:not(:disabled), .navNext:hover:not(:disabled) {
   background: #d1d5db;
+  transform: translateY(-1px);
 }
+
 .navPrev:disabled, .navNext:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
 .navNext {
-  background: #4f46e5;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
   color: white;
 }
+
 .navNext:hover:not(:disabled) {
-  background: #4338ca;
+  background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
 }
+
 .navInfo {
   font-size: 0.875rem;
   color: #64748b;
@@ -358,14 +590,16 @@
 /* Sidebar */
 .sidebar {
   flex: 1;
-  background: white;
-  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 24px;
   padding: 1.25rem;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   height: fit-content;
   position: sticky;
   top: 80px;
 }
+
 .sidebarHeader {
   display: flex;
   align-items: center;
@@ -373,37 +607,46 @@
   font-weight: bold;
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #e5e7eb;
+  border-bottom: 2px solid #e2e8f0;
+  color: #1e293b;
 }
+
 .qGrid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 0.5rem;
   margin-bottom: 1rem;
 }
+
 .qBtn {
   aspect-ratio: 1;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   cursor: pointer;
   font-weight: 500;
   position: relative;
   font-size: 0.875rem;
+  transition: all 0.2s;
 }
+
 .qBtn:hover {
   background: #e5e7eb;
+  transform: scale(1.05);
 }
+
 .qCurrent {
-  background: #4f46e5;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
   color: white;
   border: none;
 }
+
 .qAnswered {
   background: #10b981;
   color: white;
   border: none;
 }
+
 .qImageIcon {
   position: absolute;
   bottom: -3px;
@@ -420,8 +663,9 @@
   flex-wrap: wrap;
   gap: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid #e2e8f0;
 }
+
 .legendItem {
   display: flex;
   align-items: center;
@@ -429,26 +673,30 @@
   font-size: 0.65rem;
   color: #64748b;
 }
+
 .legendDot {
   width: 10px;
   height: 10px;
-  background: #f3f4f6;
+  background: #f1f5f9;
   border: 1px solid #cbd5e1;
   border-radius: 50%;
 }
+
 .legendDotAnswered {
   width: 10px;
   height: 10px;
   background: #10b981;
   border-radius: 50%;
 }
+
 .legendDotCurrent {
   width: 10px;
   height: 10px;
   background: #4f46e5;
   border-radius: 50%;
-}  
-/* Button group cho màn hình chọn */
+}
+
+/* Button group */
 .buttonGroup {
   display: flex;
   gap: 1rem;
@@ -459,29 +707,30 @@
 .backBtn, .logoutBtn {
   flex: 1;
   padding: 0.5rem;
-  border-radius: 0.5rem;
+  border-radius: 40px;
   cursor: pointer;
   font-weight: 500;
   transition: all 0.2s;
   text-align: center;
+  border: none;
 }
 
 .backBtn {
   background: #6b7280;
   color: white;
-  border: none;
 }
 
 .backBtn:hover {
   background: #4b5563;
+  transform: translateY(-1px);
 }
 
 .logoutBtn {
   background: #ef4444;
   color: white;
-  border: none;
 }
 
 .logoutBtn:hover {
   background: #dc2626;
+  transform: translateY(-1px);
 }
