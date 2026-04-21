@@ -32,7 +32,8 @@ export default function HistoryPage() {
   async function loadHistory(userId) {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // Lấy tất cả session đã nộp của thí sinh
+      const { data: sessions, error } = await supabase
         .from('exam_sessions')
         .select('*')
         .eq('user_id', userId)
@@ -41,26 +42,41 @@ export default function HistoryPage() {
       
       if (error) throw error;
       
+      console.log('Sessions loaded:', sessions);
+      
+      // Lấy chi tiết cho từng session
       const sessionsWithDetails = await Promise.all(
-        data.map(async (session) => {
+        sessions.map(async (session) => {
+          // Lấy câu hỏi từ questions_cache
           const { data: questions, error: qErr } = await supabase
             .from('questions_cache')
             .select('*')
             .in('id', session.question_ids);
           
-          if (qErr) throw qErr;
+          if (qErr) {
+            console.error('Lỗi lấy câu hỏi:', qErr);
+            return { ...session, questions: [], answers: {}, submissions: [] };
+          }
           
+          // Sắp xếp câu hỏi theo đúng thứ tự
           const orderedQuestions = session.question_ids
             .map(id => questions.find(q => q.id === id))
             .filter(Boolean);
           
+          console.log(`Session ${session.id} có ${orderedQuestions.length} câu hỏi`);
+          
+          // Lấy câu trả lời của thí sinh
           const { data: submissions, error: subErr } = await supabase
             .from('submissions')
             .select('*')
             .eq('session_id', session.id);
           
-          if (subErr) throw subErr;
+          if (subErr) {
+            console.error('Lỗi lấy submissions:', subErr);
+            return { ...session, questions: orderedQuestions, answers: {}, submissions: [] };
+          }
           
+          // Tạo map answers theo question_id
           const answersMap = {};
           submissions.forEach(sub => {
             answersMap[sub.question_id] = sub;
@@ -75,10 +91,11 @@ export default function HistoryPage() {
         })
       );
       
+      console.log('Sessions with details:', sessionsWithDetails);
       setSessions(sessionsWithDetails);
     } catch (err) {
       console.error('Lỗi tải lịch sử:', err);
-      alert('Không thể tải lịch sử bài thi');
+      alert('Không thể tải lịch sử bài thi: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -90,10 +107,6 @@ export default function HistoryPage() {
     } else {
       setSelectedSession(sessionId);
     }
-  };
-
-  const isAnswerCorrect = (answer, maxScore) => {
-    return answer?.score === maxScore;
   };
 
   const getStatusText = (status, score, totalScore) => {
@@ -133,7 +146,7 @@ export default function HistoryPage() {
       ) : (
         <div className={styles.historyList}>
           {sessions.map((session, idx) => {
-            const totalScore = session.questions.reduce((sum, q) => sum + (q.score || 0), 0);
+            const totalScore = session.questions?.reduce((sum, q) => sum + (q.score || 0), 0) || 0;
             const achievedScore = session.score || 0;
             const isGraded = session.status === 'graded';
             
@@ -164,71 +177,77 @@ export default function HistoryPage() {
                       <span>{t('total_questions')}: {session.total_questions}</span>
                     </div>
                     
-                    <div className={styles.questionsList}>
-                      {session.questions.map((q, qIdx) => {
-                        const answer = session.answers[q.id];
-                        const maxScore = q.score || 0;
-                        const achievedQScore = answer?.score || 0;
-                        const isCorrect = achievedQScore === maxScore && maxScore > 0;
-                        
-                        return (
-                          <div key={q.id} className={styles.questionItem}>
-                            <div className={styles.questionHeader}>
-                              <span className={styles.questionNumber}>{t('question')} {qIdx + 1}</span>
-                              <span className={`${styles.questionScore} ${isCorrect ? styles.fullScore : ''}`}>
-                                {isGraded ? `${achievedQScore}/${maxScore}` : `${maxScore} ${t('points')}`}
-                              </span>
-                            </div>
-                            <div className={styles.questionText}>{q.question}</div>
-                            <div className={styles.answerSection}>
-                              <div className={styles.answerLabel}>{t('your_answer_history')}</div>
-                              <div className={styles.answerText}>
-                                {answer?.user_answer || t('no_answer')}
+                    {session.questions && session.questions.length > 0 ? (
+                      <div className={styles.questionsList}>
+                        {session.questions.map((q, qIdx) => {
+                          const answer = session.answers[q.id];
+                          const maxScore = q.score || 0;
+                          const achievedQScore = answer?.score || 0;
+                          const isCorrect = achievedQScore === maxScore && maxScore > 0;
+                          
+                          return (
+                            <div key={q.id} className={styles.questionItem}>
+                              <div className={styles.questionHeader}>
+                                <span className={styles.questionNumber}>{t('question')} {qIdx + 1}</span>
+                                <span className={`${styles.questionScore} ${isCorrect ? styles.fullScore : ''}`}>
+                                  {isGraded ? `${achievedQScore}/${maxScore}` : `${maxScore} ${t('points')}`}
+                                </span>
                               </div>
-                              {answer?.image_urls && answer.image_urls.length > 0 && (
-                                <div className={styles.answerImages}>
-                                  {answer.image_urls.map((url, i) => (
-                                    <img 
-                                      key={i} 
-                                      src={url} 
-                                      alt={`answer ${i+1}`} 
-                                      className={styles.answerImage}
-                                      onClick={() => setLightboxImage(url)}
-                                      style={{ cursor: 'pointer' }}
-                                    />
-                                  ))}
+                              <div className={styles.questionText}>{q.question}</div>
+                              <div className={styles.answerSection}>
+                                <div className={styles.answerLabel}>{t('your_answer_history')}</div>
+                                <div className={styles.answerText}>
+                                  {answer?.user_answer || t('no_answer')}
                                 </div>
-                              )}
-                              {isGraded && (
-                                <div className={`${styles.gradeResult} ${isCorrect ? styles.correct : styles.wrong}`}>
-                                  {isCorrect ? '✓ ' + t('correct') : '✗ ' + t('wrong')}
-                                </div>
-                              )}
-                              {answer?.feedback && (
-                                <div className={styles.feedbackSection}>
-                                  <div className={styles.feedbackLabel}>📝 {t('feedback_from_examiner')}</div>
-                                  <div className={styles.feedbackText}>{answer.feedback}</div>
-                                  {answer.feedback_images && answer.feedback_images.length > 0 && (
-                                    <div className={styles.feedbackImages}>
-                                      {answer.feedback_images.map((url, i) => (
-                                        <img 
-                                          key={i} 
-                                          src={url} 
-                                          alt={`feedback ${i+1}`} 
-                                          className={styles.feedbackImage}
-                                          onClick={() => setLightboxImage(url)}
-                                          style={{ cursor: 'pointer' }}
-                                        />
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                                {answer?.image_urls && answer.image_urls.length > 0 && (
+                                  <div className={styles.answerImages}>
+                                    {answer.image_urls.map((url, i) => (
+                                      <img 
+                                        key={i} 
+                                        src={url} 
+                                        alt={`answer ${i+1}`} 
+                                        className={styles.answerImage}
+                                        onClick={() => setLightboxImage(url)}
+                                        style={{ cursor: 'pointer' }}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                                {isGraded && (
+                                  <div className={`${styles.gradeResult} ${isCorrect ? styles.correct : styles.wrong}`}>
+                                    {isCorrect ? '✓ ' + t('correct') : '✗ ' + t('wrong')}
+                                  </div>
+                                )}
+                                {answer?.feedback && (
+                                  <div className={styles.feedbackSection}>
+                                    <div className={styles.feedbackLabel}>📝 {t('feedback_from_examiner')}</div>
+                                    <div className={styles.feedbackText}>{answer.feedback}</div>
+                                    {answer.feedback_images && answer.feedback_images.length > 0 && (
+                                      <div className={styles.feedbackImages}>
+                                        {answer.feedback_images.map((url, i) => (
+                                          <img 
+                                            key={i} 
+                                            src={url} 
+                                            alt={`feedback ${i+1}`} 
+                                            className={styles.feedbackImage}
+                                            onClick={() => setLightboxImage(url)}
+                                            style={{ cursor: 'pointer' }}
+                                          />
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className={styles.noQuestions}>
+                        <p>Không có dữ liệu câu hỏi cho bài thi này</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
