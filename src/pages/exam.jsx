@@ -21,6 +21,7 @@ export default function ExamPage() {
   const timerRef = useRef(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(false);
+  const imagesCache = useRef({});
 
   // State cho màn hình chọn series/position
   const [seriesList, setSeriesList] = useState([]);
@@ -114,27 +115,31 @@ export default function ExamPage() {
   const handleAnswer = useCallback(async (questionId, text) => {
     setSaving(true);
     try {
-      // Lấy images hiện tại từ state (dùng callback để đảm bảo đúng)
-      let currentImages = [];
-      setAnswers(prev => {
-        currentImages = prev[questionId]?.images || [];
-        return prev; // không thay đổi state ở đây
-      });
+      const currentImages = imagesCache.current[questionId] || answers[questionId]?.images || [];
       
-      // Cập nhật state mới
       setAnswers(prev => ({
         ...prev,
         [questionId]: { text, images: currentImages }
       }));
       
-      // Lưu vào database
       await saveAnswer(session.id, questionId, text, currentImages);
     } catch (e) { 
       console.error(e); 
     } finally { 
       setSaving(false); 
     }
-  }, [session]);
+  }, [session, answers]);
+
+  const handlePasteImage = async (questionId, event) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    
+    const imageItems = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        imageItems.push(items[i]);
+      }
+    }
     
     if (imageItems.length === 0) return;
     
@@ -168,6 +173,9 @@ export default function ExamPage() {
       newImageUrls.push(urlData.publicUrl);
     }
     
+    // Cập nhật cache
+    imagesCache.current[questionId] = newImageUrls;
+    
     setAnswers(prev => ({
       ...prev,
       [questionId]: { text: currentAnswer.text, images: newImageUrls }
@@ -183,6 +191,7 @@ export default function ExamPage() {
     const current = answers[questionId];
     if (!current) return;
     const newImages = current.images.filter((_, i) => i !== imageIndex);
+    imagesCache.current[questionId] = newImages;
     setAnswers(prev => ({
       ...prev,
       [questionId]: { text: current.text, images: newImages }
@@ -194,7 +203,6 @@ export default function ExamPage() {
     finally { setSaving(false); }
   };
 
-  // Xác nhận nộp bài
   const confirmSubmit = async () => {
     setShowSubmitModal(false);
     clearInterval(timerRef.current);
@@ -216,13 +224,14 @@ export default function ExamPage() {
   const answeredCount = Object.keys(answers).filter(id => answers[id]?.text?.trim()).length;
   const q = questions[current];
 
-  if (phase === 'loading') return (
-    <div className={styles.center}>
-      <div className={styles.spinner} />
-    </div>
-  );
+  if (phase === 'loading') {
+    return (
+      <div className={styles.center}>
+        <div className={styles.spinner} />
+      </div>
+    );
+  }
 
-  // Màn hình chọn Series/Position với giao diện đẹp
   if (phase === 'select') {
     return (
       <div className={styles.selectPage}>
@@ -332,7 +341,6 @@ export default function ExamPage() {
 
         <div className={styles.examBody}>
           <main className={styles.questionPanel}>
-            {/* Khung câu hỏi */}
             <div className={styles.questionBox}>
               <div className={styles.questionHeader}>
                 <span className={styles.qNumber}>Câu {current + 1}</span>
@@ -347,7 +355,6 @@ export default function ExamPage() {
               </div>
             </div>
 
-            {/* Khung câu trả lời */}
             <div className={styles.answerBox}>
               <div className={styles.answerHeader}>
                 <span>📝 Câu trả lời của bạn</span>
@@ -362,7 +369,6 @@ export default function ExamPage() {
                 placeholder="Nhập câu trả lời của bạn vào đây..."
               />
 
-              {/* Khung hiển thị 3 ảnh cố định */}
               <div className={styles.imagesBox}>
                 <div className={styles.imagesHeader}>🖼️ Ảnh đính kèm (tối đa 3 ảnh)</div>
                 <div className={styles.imagesGrid}>
@@ -398,7 +404,6 @@ export default function ExamPage() {
               </div>
             </div>
 
-            {/* Navigation */}
             <div className={styles.navSection}>
               <button className={styles.navPrev} onClick={() => setCurrent(c => c-1)} disabled={current === 0}>
                 ← Câu trước
@@ -410,7 +415,6 @@ export default function ExamPage() {
             </div>
           </main>
 
-          {/* Sidebar */}
           <aside className={styles.sidebar}>
             <div className={styles.sidebarHeader}>
               <span>📋</span>
@@ -455,7 +459,6 @@ export default function ExamPage() {
         </div>
       </div>
 
-      {/* Modal xác nhận nộp bài */}
       <Modal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
