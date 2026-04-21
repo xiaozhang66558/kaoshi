@@ -307,3 +307,108 @@
     justify-content: space-between;
   }
 }
+/* Feedback Section */
+.feedbackSection {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: #f0fdf4;
+  border-radius: 12px;
+  border-left: 3px solid #10b981;
+}
+
+.feedbackLabel {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #166534;
+  margin-bottom: 0.25rem;
+}
+
+.feedbackText {
+  font-size: 0.85rem;
+  color: #1e293b;
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.feedbackImages {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.feedbackImage {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.feedbackImage:hover {
+  transform: scale(1.05);
+}
+
+/* Lightbox */
+.lightbox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.lightboxContent {
+  position: relative;
+  max-width: 90%;
+  max-height: 90%;
+}
+
+.lightboxImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 16px;
+}
+
+.lightboxClose {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  color: white;
+  font-size: 35px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.lightboxClose:hover {
+  color: #ef4444;
+}
+
+/* Grade Result */
+.gradeResult {
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 40px;
+  display: inline-block;
+}
+
+.gradeResult.correct {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.gradeResult.wrong {
+  background: #fee2e2;
+  color: #b91c1c;
+}
