@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase, getProfile, getAllSessions, getSessionDetail, getSubmittedSessions, gradeSubmission, saveFeedback } from '../../lib/supabase';
 import Modal from '../../components/Modal';
 import { useLanguage } from '../../contexts/LanguageContext';
+import Statistics from '../../components/Statistics';
 import styles from '../../styles/admin.module.css';
 
 const SYNC_URL = '/.netlify/functions/sync-questions';
@@ -517,6 +518,9 @@ export default function AdminPage() {
         </button>
       </div>
 
+      {/* Thống kê */}
+      <Statistics sessions={sessions} />
+
       {tab === 'all' && (
         <div className={styles.filterBar}>
           <div className={styles.searchBox}>
@@ -575,7 +579,6 @@ export default function AdminPage() {
                   ) : (
                     sessions.map(s => {
                       const isFullyGraded = s.status === 'graded';
-                      // Tính thời gian làm bài
                       let examDuration = '—';
                       if (s.submitted_at && s.started_at) {
                         const diffMs = new Date(s.submitted_at) - new Date(s.started_at);
@@ -669,7 +672,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {submittedSessions.length === 0 ? (
-                    <tr><td colSpan={7} className={styles.empty}>{t('no_pending')}</td></tr>
+                    <td><td colSpan={7} className={styles.empty}>{t('no_pending')}</td></tr>
                   ) : (
                     submittedSessions.map(s => {
                       let examDuration = '—';
