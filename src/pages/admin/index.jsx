@@ -16,8 +16,41 @@ export default function AdminPage() {
   const [syncing, setSyncing] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
   const [tab, setTab] = useState('all');
+  const [searchName, setSearchName] = useState('');
+  const [filterSeries, setFilterSeries] = useState('');
+  const [filterPosition, setFilterPosition] = useState('');
+  const [seriesOptions, setSeriesOptions] = useState([]);
+  const [positionOptions, setPositionOptions] = useState([]);
 
 
+  // Lấy danh sách series và position để hiển thị trong dropdown
+  async function loadFilterOptions() {
+    try {
+      const { data: seriesData } = await supabase
+        .from('questions_cache')
+        .select('series')
+        .eq('is_active', true)
+        .not('series', 'is', null);
+      const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
+      setSeriesOptions(uniqueSeries);
+  
+      const { data: positionData } = await supabase
+        .from('questions_cache')
+        .select('position')
+        .eq('is_active', true)
+        .not('position', 'is', null);
+      const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
+      setPositionOptions(uniquePositions);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+  
+  // Gọi hàm này trong useEffect khi component mount
+  useEffect(() => {
+    loadFilterOptions();
+  }, []);
+  
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { router.replace('/'); return; }
