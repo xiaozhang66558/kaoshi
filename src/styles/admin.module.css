@@ -205,88 +205,96 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
+/* ===== TABLE CỘT THU GỌN ===== */
 .table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
-  min-width: 800px;
+  table-layout: fixed;  /* Căn đều các cột */
+  min-width: 900px;
 }
 
 /* Độ rộng các cột */
-.table th:nth-child(1) { width: 18%; }  /* Thí sinh */
-.table th:nth-child(2) { width: 10%; }  /* Series */
-.table th:nth-child(3) { width: 10%; }  /* Position */
-.table th:nth-child(4) { width: 20%; }  /* Thời gian nộp */
-.table th:nth-child(5) { width: 8%; }   /* Điểm */
-.table th:nth-child(6) { width: 12%; }  /* Trạng thái */
-.table th:nth-child(7) { width: 22%; }  /* Hành động */
+.table th:nth-child(1) { width: 12%; }  /* Thí sinh */
+.table th:nth-child(2) { width: 8%; }   /* Series */
+.table th:nth-child(3) { width: 8%; }   /* Position */
+.table th:nth-child(4) { width: 14%; }  /* Thời gian nộp */
+.table th:nth-child(5) { width: 12%; }  /* Thời gian làm bài */
+.table th:nth-child(6) { width: 8%; }   /* Điểm */
+.table th:nth-child(7) { width: 10%; }  /* Trạng thái */
+.table th:nth-child(8) { width: 10%; }  /* Người chấm */
+.table th:nth-child(9) { width: 18%; }  /* Hành động */
 
-.table th {
-  padding: 1rem 0.75rem;
-  text-align: center;
-  background: rgba(248, 250, 252, 0.8);
-  color: #475569;
-  font-weight: 600;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+/* Thu gọn padding */
+.table th, .table td {
+  padding: 0.6rem 0.5rem;
+  font-size: 0.8rem;
 }
 
-.table td {
-  padding: 1rem 0.75rem;
+/* Căn giữa các cột */
+.table th, .table td {
   text-align: center;
-  border-bottom: 1px solid #e2e8f0;
-  color: #334155;
-  vertical-align: middle;
 }
 
-/* Cột Thí sinh căn trái */
+/* Riêng cột Thí sinh căn trái */
 .table th:first-child,
 .table td:first-child {
   text-align: left;
 }
 
-.table tbody tr:hover {
-  background: rgba(248, 250, 252, 0.5);
+/* Badge nhỏ gọn */
+.seriesBadge, .positionBadge {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.65rem;
+  white-space: nowrap;
 }
 
-/* Name cell với avatar */
-.nameCell {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-weight: 600;
-  color: #1e293b;
+.scorePill {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
 }
 
-.avatar {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-  border-radius: 50%;
+.badgeGraded, .badgePending, .badgeProgress {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+.graderName {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+/* Nút hành động nhỏ gọn */
+.detailBtn, .deleteBtn {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.actionCell {
   display: flex;
+  gap: 0.3rem;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: 600;
-  font-size: 0.85rem;
-  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
-.userInfo {
-  display: flex;
-  flex-direction: column;
+/* Thời gian */
+.timeCell {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+/* Tên thí sinh */
+.nameCell {
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 .username {
-  font-size: 0.7rem;
-  color: #94a3b8;
-}
-
-.timeCell {
-  font-size: 0.85rem;
-  color: #64748b;
-  white-space: nowrap;
+  font-size: 0.6rem;
 }
 
 /* ===== SCORE PILLS ===== */
