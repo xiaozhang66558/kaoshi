@@ -300,6 +300,14 @@ export default function ExamPage() {
               <span>🏠</span>
               Quay về trang chủ
             </button>
+
+            <button 
+              className={styles.historyBtn} 
+              onClick={() => router.push('/history')}
+            >
+              <span>📜</span>
+              Lịch sử bài thi
+            </button>
           </div>
         </div>
       </div>
@@ -313,6 +321,14 @@ export default function ExamPage() {
           <h2>📝 Bài thi đã được nộp!</h2>
           <p>Kết quả sẽ được admin chấm điểm sau.</p>
           <button className={styles.startBtn} onClick={() => router.replace('/')}>Về trang chủ</button>
+          <button 
+            className={styles.historyBtn} 
+            onClick={() => router.push('/history')}
+            style={{ marginTop: '0.5rem' }}
+          >
+            <span>📜</span>
+            Xem lịch sử bài thi
+          </button>
         </div>
       </div>
     );
