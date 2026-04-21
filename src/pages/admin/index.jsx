@@ -58,13 +58,14 @@ export default function AdminPage() {
     }
   };
 
-  // Hàm tính xếp hạng thí sinh
+  // Hàm tính xếp hạng thí sinh (sửa lỗi relationship)
   const calculateRanking = async () => {
     setRankingLoading(true);
     try {
+      // Lấy tất cả session (không join)
       let query = supabase
         .from('exam_sessions')
-        .select('*, profiles(full_name, email, username)')
+        .select('*')
         .neq('status', 'in_progress');
       
       if (filterSeries) query = query.eq('series', filterSeries);
@@ -73,17 +74,41 @@ export default function AdminPage() {
       const { data: sessions, error } = await query;
       if (error) throw error;
       
+      if (!sessions || sessions.length === 0) {
+        setRankingData([]);
+        setShowRankingModal(true);
+        setRankingLoading(false);
+        return;
+      }
+      
+      // Lấy thông tin profiles riêng
+      const userIds = [...new Set(sessions.map(s => s.user_id).filter(Boolean))];
+      let profileMap = {};
+      
+      if (userIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, username')
+          .in('id', userIds);
+        
+        if (!profileError && profiles) {
+          profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+        }
+      }
+      
+      // Nhóm theo user_id và tính điểm trung bình
       const userStats = new Map();
       sessions.forEach(s => {
         const userId = s.user_id;
         const score = s.score || 0;
+        const profile = profileMap[userId];
         
         if (!userStats.has(userId)) {
           userStats.set(userId, {
             user_id: userId,
-            full_name: s.profiles?.full_name || s.user_id,
-            username: s.profiles?.username,
-            email: s.profiles?.email,
+            full_name: profile?.full_name || userId,
+            username: profile?.username,
+            email: profile?.email,
             totalScore: 0,
             examCount: 0,
             scores: []
@@ -96,7 +121,9 @@ export default function AdminPage() {
         stats.scores.push(score);
       });
       
+      // Tính điểm trung bình và sắp xếp
       const ranking = Array.from(userStats.values())
+        .filter(user => user.examCount > 0)
         .map(user => ({
           ...user,
           avgScore: user.totalScore / user.examCount,
