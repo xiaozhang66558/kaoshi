@@ -566,10 +566,10 @@ export default function AdminPage() {
                     <th>{t('series')}</th>
                     <th>{t('position')}</th>
                     <th>{t('submit_time')}</th>
-                    <th>Thời gian làm bài</th>
+                    <th>{t('exam_duration')}</th>
                     <th>{t('score')}</th>
                     <th>{t('status')}</th>
-                    <th>Người chấm</th>
+                    <th>{t('grader')}</th>
                     <th></th>
                   </tr>
                 </thead>
