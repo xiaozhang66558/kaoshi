@@ -10,7 +10,7 @@ import styles from '../styles/exam.module.css';
 
 export default function ExamPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [user, setUser] = useState(null);
   const [phase, setPhase] = useState('loading');
   const [session, setSession] = useState(null);
@@ -31,6 +31,13 @@ export default function ExamPage() {
   const [selectedSeries, setSelectedSeries] = useState('');
   const [selectedPosition, setSelectedPosition] = useState('');
   const [loadingOptions, setLoadingOptions] = useState(false);
+
+  // Hàm lấy câu hỏi theo ngôn ngữ hiện tại
+  const getQuestionByLanguage = (q) => {
+    if (language === 'en') return q.question_en || q.question;
+    if (language === 'zh') return q.question_zh || q.question;
+    return q.question_vi || q.question; // mặc định tiếng Việt
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
@@ -376,7 +383,7 @@ export default function ExamPage() {
                 <span className={styles.qScore}>🎯 {q.score} {t('points')}</span>
               </div>
               <div className={styles.questionText}>
-                <p>{q.question}</p>
+                <p>{getQuestionByLanguage(q)}</p>
               </div>
             </div>
 
