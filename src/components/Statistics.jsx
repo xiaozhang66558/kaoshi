@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
-import { Pie, Bar } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import styles from '../styles/statistics.module.css';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
@@ -17,7 +17,7 @@ export default function Statistics({ sessions }) {
   useEffect(() => {
     if (!sessions || sessions.length === 0) return;
 
-    // Tính tổng điểm
+    // Tính tổng điểm trung bình
     const totalScore = sessions.reduce((sum, s) => sum + (s.score || 0), 0);
     const avgScore = totalScore / sessions.length;
 
@@ -33,39 +33,41 @@ export default function Statistics({ sessions }) {
     });
     const avgTime = timeCount > 0 ? totalTime / timeCount : 0;
 
-    // Thống kê theo series
+    // Thống kê theo series - lấy TẤT CẢ các series (không lọc)
     const seriesMap = new Map();
     sessions.forEach(s => {
-      if (s.series) {
-        if (!seriesMap.has(s.series)) {
-          seriesMap.set(s.series, { total: 0, count: 0 });
-        }
-        seriesMap.get(s.series).total += (s.score || 0);
-        seriesMap.get(s.series).count++;
+      const seriesName = s.series || 'Khác';
+      if (!seriesMap.has(seriesName)) {
+        seriesMap.set(seriesName, { total: 0, count: 0 });
       }
+      seriesMap.get(seriesName).total += (s.score || 0);
+      seriesMap.get(seriesName).count++;
     });
-    const seriesStats = Array.from(seriesMap.entries()).map(([name, data]) => ({
-      name,
-      avg: data.total / data.count,
-      count: data.count
-    }));
+    const seriesStats = Array.from(seriesMap.entries())
+      .map(([name, data]) => ({
+        name,
+        avg: data.total / data.count,
+        count: data.count
+      }))
+      .sort((a, b) => b.avg - a.avg);
 
-    // Thống kê theo position
+    // Thống kê theo position - lấy TẤT CẢ các position (không lọc)
     const positionMap = new Map();
     sessions.forEach(s => {
-      if (s.position) {
-        if (!positionMap.has(s.position)) {
-          positionMap.set(s.position, { total: 0, count: 0 });
-        }
-        positionMap.get(s.position).total += (s.score || 0);
-        positionMap.get(s.position).count++;
+      const positionName = s.position || 'Khác';
+      if (!positionMap.has(positionName)) {
+        positionMap.set(positionName, { total: 0, count: 0 });
       }
+      positionMap.get(positionName).total += (s.score || 0);
+      positionMap.get(positionName).count++;
     });
-    const positionStats = Array.from(positionMap.entries()).map(([name, data]) => ({
-      name,
-      avg: data.total / data.count,
-      count: data.count
-    }));
+    const positionStats = Array.from(positionMap.entries())
+      .map(([name, data]) => ({
+        name,
+        avg: data.total / data.count,
+        count: data.count
+      }))
+      .sort((a, b) => b.avg - a.avg);
 
     setStats({
       avgScore: avgScore.toFixed(1),
@@ -82,28 +84,30 @@ export default function Statistics({ sessions }) {
     return `${mins} phút ${secs} giây`;
   };
 
-  // Dữ liệu biểu đồ tròn cho series
-  const pieData = {
+  // Dữ liệu biểu đồ cột cho series
+  const seriesBarData = {
     labels: stats.seriesStats.map(s => s.name),
     datasets: [
       {
         label: 'Điểm trung bình',
         data: stats.seriesStats.map(s => s.avg),
-        backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'],
-        borderWidth: 0,
+        backgroundColor: 'rgba(79, 70, 229, 0.7)',
+        borderRadius: 8,
+        barPercentage: 0.7,
       },
     ],
   };
 
   // Dữ liệu biểu đồ cột cho position
-  const barData = {
+  const positionBarData = {
     labels: stats.positionStats.map(p => p.name),
     datasets: [
       {
         label: 'Điểm trung bình',
         data: stats.positionStats.map(p => p.avg),
-        backgroundColor: '#4f46e5',
+        backgroundColor: 'rgba(16, 185, 129, 0.7)',
         borderRadius: 8,
+        barPercentage: 0.7,
       },
     ],
   };
@@ -114,9 +118,58 @@ export default function Statistics({ sessions }) {
     plugins: {
       legend: {
         position: 'top',
+        labels: {
+          font: { size: 11 },
+          boxWidth: 12,
+        },
       },
-      title: {
-        display: false,
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            return `Điểm TB: ${context.raw.toFixed(1)} điểm`;
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+        title: {
+          display: true,
+          text: 'Điểm',
+          font: { size: 11 },
+        },
+        grid: {
+          color: '#e2e8f0',
+        },
+      },
+      x: {
+        title: {
+          display: true,
+          text: '系列',
+          font: { size: 11 },
+        },
+        ticks: {
+          font: { size: 10 },
+        },
+      },
+    },
+  };
+
+  const positionBarOptions = {
+    ...barOptions,
+    scales: {
+      ...barOptions.scales,
+      x: {
+        title: {
+          display: true,
+          text: '岗位',
+          font: { size: 11 },
+        },
+        ticks: {
+          font: { size: 10 },
+        },
       },
     },
   };
@@ -164,9 +217,9 @@ export default function Statistics({ sessions }) {
           <div className={styles.chartTitle}>
             <span>📊 Điểm TB theo 系列</span>
           </div>
-          <div className={styles.pieChartContainer}>
+          <div className={styles.barChartContainer}>
             {stats.seriesStats.length > 0 ? (
-              <Pie data={pieData} options={{ maintainAspectRatio: true }} />
+              <Bar data={seriesBarData} options={barOptions} />
             ) : (
               <div className={styles.noData}>Chưa có dữ liệu</div>
             )}
@@ -174,8 +227,8 @@ export default function Statistics({ sessions }) {
           <div className={styles.chartLegend}>
             {stats.seriesStats.map((s, idx) => (
               <div key={idx} className={styles.legendItem}>
-                <span className={styles.legendColor} style={{ backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'][idx % 6] }}></span>
-                <span>{s.name}: {s.avg} điểm ({s.count} bài)</span>
+                <span className={styles.legendColor} style={{ backgroundColor: '#4f46e5' }}></span>
+                <span>{s.name}: {s.avg.toFixed(1)} điểm ({s.count} bài)</span>
               </div>
             ))}
           </div>
@@ -187,10 +240,18 @@ export default function Statistics({ sessions }) {
           </div>
           <div className={styles.barChartContainer}>
             {stats.positionStats.length > 0 ? (
-              <Bar data={barData} options={barOptions} />
+              <Bar data={positionBarData} options={positionBarOptions} />
             ) : (
               <div className={styles.noData}>Chưa có dữ liệu</div>
             )}
+          </div>
+          <div className={styles.chartLegend}>
+            {stats.positionStats.map((p, idx) => (
+              <div key={idx} className={styles.legendItem}>
+                <span className={styles.legendColor} style={{ backgroundColor: '#10b981' }}></span>
+                <span>{p.name}: {p.avg.toFixed(1)} điểm ({p.count} bài)</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
