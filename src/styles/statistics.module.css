@@ -4,6 +4,8 @@
   border-radius: 24px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+  margin-left: auto;
+  margin-right: auto;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
@@ -11,29 +13,39 @@
   margin-bottom: 1.25rem;
   padding-bottom: 0.75rem;
   border-bottom: 2px solid #e2e8f0;
+  text-align: center;
 }
 
 .statsHeader h3 {
   font-size: 1.2rem;
   font-weight: 600;
   color: #1e293b;
+  margin: 0;
 }
 
 .statsCards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 1.5rem;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .statCard {
+  flex: 1;
+  min-width: 160px;
+  max-width: 220px;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border-radius: 20px;
   transition: all 0.2s;
+  text-align: center;
+  margin: 0 auto;
 }
 
 .statCard:hover {
@@ -43,10 +55,12 @@
 
 .statIcon {
   font-size: 2rem;
+  flex-shrink: 0;
 }
 
 .statInfo {
   flex: 1;
+  text-align: center;
 }
 
 .statValue {
@@ -54,6 +68,7 @@
   font-weight: 700;
   color: #1e293b;
   line-height: 1.2;
+  text-align: center;
 }
 
 .statLabel {
@@ -61,6 +76,7 @@
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  text-align: center;
 }
 
 .chartsContainer {
@@ -140,7 +156,13 @@
 
 @media (max-width: 900px) {
   .statsCards {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .statCard {
+    width: 100%;
+    max-width: 280px;
   }
   
   .chartsContainer {
