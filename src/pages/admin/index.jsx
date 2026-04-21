@@ -664,7 +664,7 @@ export default function AdminPage() {
                 <tbody>
                   {sessions.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className={styles.empty}>{t('no_exams')}</table>
+                      <td colSpan={9} className={styles.empty}>{t('no_exams')}</td>
                     </tr>
                   ) : (
                     sessions.map(s => {
@@ -737,7 +737,7 @@ export default function AdminPage() {
                               🗑️ {t('delete')}
                             </button>
                           </td>
-                        <tr>
+                        </tr>
                       );
                     })
                   )}
