@@ -5,10 +5,12 @@ import {
   getSessionWithQuestions, saveAnswer, getAnswers, submitExam
 } from '../lib/supabase';
 import Modal from '../components/Modal';
+import { useLanguage } from '../contexts/LanguageContext';
 import styles from '../styles/exam.module.css';
 
 export default function ExamPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [user, setUser] = useState(null);
   const [phase, setPhase] = useState('loading');
   const [session, setSession] = useState(null);
@@ -98,7 +100,7 @@ export default function ExamPage() {
 
   async function handleStart() {
     if (!selectedSeries || !selectedPosition) {
-      alert('Vui lòng chọn Series và Position');
+      alert(t('please_select_series_position'));
       return;
     }
     setPhase('loading');
@@ -145,7 +147,7 @@ export default function ExamPage() {
     
     const currentAnswer = answers[questionId] || { text: '', images: [] };
     if (currentAnswer.images.length + imageItems.length > 3) {
-      alert('⚠️ Chỉ được dán tối đa 3 ảnh mỗi câu!');
+      alert(`⚠️ ${t('images_attached')}`);
       return;
     }
     
@@ -173,7 +175,6 @@ export default function ExamPage() {
       newImageUrls.push(urlData.publicUrl);
     }
     
-    // Cập nhật cache
     imagesCache.current[questionId] = newImageUrls;
     
     setAnswers(prev => ({
@@ -224,6 +225,14 @@ export default function ExamPage() {
   const answeredCount = Object.keys(answers).filter(id => answers[id]?.text?.trim()).length;
   const q = questions[current];
 
+  // Helper để lấy tên độ khó theo ngôn ngữ
+  const getDifficultyText = (difficulty) => {
+    if (difficulty === 'easy') return t('easy');
+    if (difficulty === 'medium') return t('medium');
+    if (difficulty === 'hard') return t('hard');
+    return difficulty;
+  };
+
   if (phase === 'loading') {
     return (
       <div className={styles.center}>
@@ -238,15 +247,15 @@ export default function ExamPage() {
         <div className={styles.selectContainer}>
           <div className={styles.selectHeader}>
             <div className={styles.selectIcon}>📋</div>
-            <h1 className={styles.selectTitle}>Chọn bộ câu hỏi</h1>
-            <p className={styles.selectSubtitle}>Vui lòng chọn Series và Position để bắt đầu làm bài</p>
+            <h1 className={styles.selectTitle}>{t('select_questions')}</h1>
+            <p className={styles.selectSubtitle}>{t('please_select_series_position')}</p>
           </div>
           
           <div className={styles.selectForm}>
             <div className={styles.selectGroup}>
               <label className={styles.selectLabel}>
                 <span className={styles.labelIcon}>🏷️</span>
-                系列 (Series)
+                {t('select_series')}
               </label>
               <div className={styles.selectWrapper}>
                 <select 
@@ -255,7 +264,7 @@ export default function ExamPage() {
                   className={styles.selectInput}
                   disabled={loadingOptions}
                 >
-                  <option value="">-- Chọn series --</option>
+                  <option value="">-- {t('select_series')} --</option>
                   {seriesList.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <span className={styles.selectArrow}>▼</span>
@@ -265,7 +274,7 @@ export default function ExamPage() {
             <div className={styles.selectGroup}>
               <label className={styles.selectLabel}>
                 <span className={styles.labelIcon}>💼</span>
-                岗位 (Position)
+                {t('select_position')}
               </label>
               <div className={styles.selectWrapper}>
                 <select 
@@ -274,7 +283,7 @@ export default function ExamPage() {
                   className={styles.selectInput}
                   disabled={loadingOptions}
                 >
-                  <option value="">-- Chọn position --</option>
+                  <option value="">-- {t('select_position')} --</option>
                   {positionList.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
                 <span className={styles.selectArrow}>▼</span>
@@ -287,7 +296,7 @@ export default function ExamPage() {
               disabled={loadingOptions || !selectedSeries || !selectedPosition}
             >
               <span>▶</span>
-              Bắt đầu làm bài
+              {t('start_exam')}
             </button>
 
             <button 
@@ -298,7 +307,7 @@ export default function ExamPage() {
               }}
             >
               <span>🏠</span>
-              Quay về trang chủ
+              {t('back_home')}
             </button>
 
             <button 
@@ -306,7 +315,7 @@ export default function ExamPage() {
               onClick={() => router.push('/history')}
             >
               <span>📜</span>
-              Lịch sử bài thi
+              {t('history')}
             </button>
           </div>
         </div>
@@ -318,16 +327,16 @@ export default function ExamPage() {
     return (
       <div className={styles.center}>
         <div className={styles.resultCard}>
-          <h2>📝 Bài thi đã được nộp!</h2>
-          <p>Kết quả sẽ được admin chấm điểm sau.</p>
-          <button className={styles.startBtn} onClick={() => router.replace('/')}>Về trang chủ</button>
+          <h2>📝 {t('submitted')}</h2>
+          <p>{t('result_pending')}</p>
+          <button className={styles.startBtn} onClick={() => router.replace('/')}>{t('back_home')}</button>
           <button 
             className={styles.historyBtn} 
             onClick={() => router.push('/history')}
             style={{ marginTop: '0.5rem' }}
           >
             <span>📜</span>
-            Xem lịch sử bài thi
+            {t('history')}
           </button>
         </div>
       </div>
@@ -351,7 +360,7 @@ export default function ExamPage() {
             ⏱️ {formatTime(timeLeft)}
           </div>
           <button className={styles.submitBtn} onClick={handleSubmit} disabled={submitting}>
-            {submitting ? '📤 Đang nộp...' : '📮 Nộp bài'}
+            {submitting ? `📤 ${t('submitting')}` : `📮 ${t('submit_exam')}`}
           </button>
         </header>
 
@@ -359,12 +368,12 @@ export default function ExamPage() {
           <main className={styles.questionPanel}>
             <div className={styles.questionBox}>
               <div className={styles.questionHeader}>
-                <span className={styles.qNumber}>Câu {current + 1}</span>
+                <span className={styles.qNumber}>{t('question')} {current + 1}</span>
                 <span className={styles.qTotal}>/{questions.length}</span>
                 <span className={`${styles.qDiff} ${styles[q.difficulty]}`}>
-                  {q.difficulty === 'easy' ? 'Dễ' : q.difficulty === 'medium' ? 'Trung bình' : 'Khó'}
+                  {getDifficultyText(q.difficulty)}
                 </span>
-                <span className={styles.qScore}>🎯 {q.score} điểm</span>
+                <span className={styles.qScore}>🎯 {q.score} {t('points')}</span>
               </div>
               <div className={styles.questionText}>
                 <p>{q.question}</p>
@@ -373,8 +382,8 @@ export default function ExamPage() {
 
             <div className={styles.answerBox}>
               <div className={styles.answerHeader}>
-                <span>📝 Câu trả lời của bạn</span>
-                <span className={styles.answerHint}>(Ctrl+V để dán ảnh)</span>
+                <span>📝 {t('your_answer')}</span>
+                <span className={styles.answerHint}>{t('paste_hint')}</span>
               </div>
               <textarea
                 className={styles.answerTextarea}
@@ -382,11 +391,11 @@ export default function ExamPage() {
                 value={currentAnswer.text || ''}
                 onChange={(e) => handleAnswer(q.id, e.target.value)}
                 onPaste={(e) => handlePasteImage(q.id, e)}
-                placeholder="Nhập câu trả lời của bạn vào đây..."
+                placeholder={t('enter_answer')}
               />
 
               <div className={styles.imagesBox}>
-                <div className={styles.imagesHeader}>🖼️ Ảnh đính kèm (tối đa 3 ảnh)</div>
+                <div className={styles.imagesHeader}>🖼️ {t('images_attached')}</div>
                 <div className={styles.imagesGrid}>
                   {[0, 1, 2].map((idx) => {
                     const imageUrl = currentAnswer.images[idx];
@@ -401,7 +410,7 @@ export default function ExamPage() {
                             <button
                               className={styles.removeImageBtn}
                               onClick={() => removeImage(q.id, idx)}
-                              title="Xóa ảnh"
+                              title={t('delete')}
                             >
                               ✕
                             </button>
@@ -409,8 +418,8 @@ export default function ExamPage() {
                         ) : (
                           <div className={styles.imagePlaceholder}>
                             <span>🖼️</span>
-                            <span>Chưa có ảnh</span>
-                            <span className={styles.imageHint}>(Ctrl+V để dán)</span>
+                            <span>{t('no_image')}</span>
+                            <span className={styles.imageHint}>{t('paste_image')}</span>
                           </div>
                         )}
                       </div>
@@ -422,11 +431,11 @@ export default function ExamPage() {
 
             <div className={styles.navSection}>
               <button className={styles.navPrev} onClick={() => setCurrent(c => c-1)} disabled={current === 0}>
-                ← Câu trước
+                {t('prev_question')}
               </button>
               <span className={styles.navInfo}>{current+1} / {questions.length}</span>
               <button className={styles.navNext} onClick={() => setCurrent(c => c+1)} disabled={current === questions.length-1}>
-                Câu tiếp →
+                {t('next_question')}
               </button>
             </div>
           </main>
@@ -434,7 +443,7 @@ export default function ExamPage() {
           <aside className={styles.sidebar}>
             <div className={styles.sidebarHeader}>
               <span>📋</span>
-              <span>Danh sách câu hỏi</span>
+              <span>{t('question_list')}</span>
             </div>
             <div className={styles.qGrid}>
               {questions.map((_, idx) => {
@@ -445,7 +454,7 @@ export default function ExamPage() {
                     key={idx}
                     className={`${styles.qBtn} ${idx === current ? styles.qCurrent : ''} ${hasAnswer ? styles.qAnswered : ''}`}
                     onClick={() => setCurrent(idx)}
-                    title={hasImage ? 'Có ảnh đính kèm' : (hasAnswer ? 'Đã trả lời' : 'Chưa trả lời')}
+                    title={hasImage ? t('has_image') : (hasAnswer ? t('answered') : t('unanswered'))}
                   >
                     {idx+1}
                     {hasImage && <span className={styles.qImageIcon}>📷</span>}
@@ -456,19 +465,19 @@ export default function ExamPage() {
             <div className={styles.legend}>
               <div className={styles.legendItem}>
                 <span className={styles.legendDotAnswered}></span>
-                <span>Đã trả lời</span>
+                <span>{t('answered')}</span>
               </div>
               <div className={styles.legendItem}>
                 <span className={styles.legendDotCurrent}></span>
-                <span>Đang xem</span>
+                <span>{t('viewing')}</span>
               </div>
               <div className={styles.legendItem}>
                 <span className={styles.legendDot}></span>
-                <span>Chưa trả lời</span>
+                <span>{t('unanswered')}</span>
               </div>
               <div className={styles.legendItem}>
                 <span>📷</span>
-                <span>Có ảnh</span>
+                <span>{t('has_image')}</span>
               </div>
             </div>
           </aside>
@@ -478,11 +487,11 @@ export default function ExamPage() {
       <Modal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
-        title="Xác nhận nộp bài"
-        message={autoSubmit ? "Đã hết thời gian! Bài thi sẽ được tự động nộp." : "Bạn có chắc chắn muốn nộp bài không?"}
+        title={t('confirm')}
+        message={autoSubmit ? t('time_expired') : t('submit_confirm')}
         onConfirm={confirmSubmit}
-        confirmText="Nộp bài"
-        cancelText="Hủy"
+        confirmText={t('submit_exam')}
+        cancelText={t('cancel')}
       />
     </>
   );
