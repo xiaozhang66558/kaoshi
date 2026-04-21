@@ -112,28 +112,29 @@ export default function ExamPage() {
   }
 
   const handleAnswer = useCallback(async (questionId, text) => {
-    const currentImages = answers[questionId]?.images || [];
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: { text, images: currentImages }
-    }));
     setSaving(true);
     try {
+      // Lấy images hiện tại từ state (dùng callback để đảm bảo đúng)
+      let currentImages = [];
+      setAnswers(prev => {
+        currentImages = prev[questionId]?.images || [];
+        return prev; // không thay đổi state ở đây
+      });
+      
+      // Cập nhật state mới
+      setAnswers(prev => ({
+        ...prev,
+        [questionId]: { text, images: currentImages }
+      }));
+      
+      // Lưu vào database
       await saveAnswer(session.id, questionId, text, currentImages);
-    } catch (e) { console.error(e); } 
-    finally { setSaving(false); }
-  }, [session]);
-
-  const handlePasteImage = async (questionId, event) => {
-    const items = event.clipboardData?.items;
-    if (!items) return;
-    
-    const imageItems = [];
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        imageItems.push(items[i]);
-      }
+    } catch (e) { 
+      console.error(e); 
+    } finally { 
+      setSaving(false); 
     }
+  }, [session]);
     
     if (imageItems.length === 0) return;
     
