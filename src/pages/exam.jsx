@@ -221,26 +221,76 @@ export default function ExamPage() {
     </div>
   );
 
+  // Màn hình chọn Series/Position với giao diện đẹp
   if (phase === 'select') {
     return (
-      <div className={styles.center}>
-        <div className={styles.startCard}>
-          <h2>📋 Chọn bộ câu hỏi</h2>
-          <div className={styles.selectGroup}>
-            <label>系列 (Series)</label>
-            <select value={selectedSeries} onChange={e => setSelectedSeries(e.target.value)}>
-              <option value="">-- Chọn series --</option>
-              {seriesList.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+      <div className={styles.selectPage}>
+        <div className={styles.selectContainer}>
+          <div className={styles.selectHeader}>
+            <div className={styles.selectIcon}>📋</div>
+            <h1 className={styles.selectTitle}>Chọn bộ câu hỏi</h1>
+            <p className={styles.selectSubtitle}>Vui lòng chọn Series và Position để bắt đầu làm bài</p>
           </div>
-          <div className={styles.selectGroup}>
-            <label>岗位 (Position)</label>
-            <select value={selectedPosition} onChange={e => setSelectedPosition(e.target.value)}>
-              <option value="">-- Chọn position --</option>
-              {positionList.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+          
+          <div className={styles.selectForm}>
+            <div className={styles.selectGroup}>
+              <label className={styles.selectLabel}>
+                <span className={styles.labelIcon}>🏷️</span>
+                系列 (Series)
+              </label>
+              <div className={styles.selectWrapper}>
+                <select 
+                  value={selectedSeries} 
+                  onChange={(e) => setSelectedSeries(e.target.value)}
+                  className={styles.selectInput}
+                  disabled={loadingOptions}
+                >
+                  <option value="">-- Chọn series --</option>
+                  {seriesList.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <span className={styles.selectArrow}>▼</span>
+              </div>
+            </div>
+
+            <div className={styles.selectGroup}>
+              <label className={styles.selectLabel}>
+                <span className={styles.labelIcon}>💼</span>
+                岗位 (Position)
+              </label>
+              <div className={styles.selectWrapper}>
+                <select 
+                  value={selectedPosition} 
+                  onChange={(e) => setSelectedPosition(e.target.value)}
+                  className={styles.selectInput}
+                  disabled={loadingOptions}
+                >
+                  <option value="">-- Chọn position --</option>
+                  {positionList.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+                <span className={styles.selectArrow}>▼</span>
+              </div>
+            </div>
+
+            <button 
+              className={styles.startExamBtn} 
+              onClick={handleStart} 
+              disabled={loadingOptions || !selectedSeries || !selectedPosition}
+            >
+              <span>▶</span>
+              Bắt đầu làm bài
+            </button>
+
+            <button 
+              className={styles.backHomeBtn} 
+              onClick={async () => {
+                await supabase.auth.signOut();
+                router.push('/');
+              }}
+            >
+              <span>🏠</span>
+              Quay về trang chủ
+            </button>
           </div>
-          <button className={styles.startBtn} onClick={handleStart}>Bắt đầu làm bài</button>
         </div>
       </div>
     );
