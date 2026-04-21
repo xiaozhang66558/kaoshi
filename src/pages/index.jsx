@@ -58,7 +58,7 @@ export default function LoginPage() {
           <div className={styles.header}>
             <div className={styles.logo}>
               <div className={styles.logoIcon}>📘</div>
-              <h1 className={styles.logoText}>薪资系统</h1>
+              <h1 className={styles.logoText}>考试系统</h1>
             </div>
             <p className={styles.subtitle}>ExamFlow - Hệ thống thi trực tuyến</p>
           </div>
