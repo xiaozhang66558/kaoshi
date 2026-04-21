@@ -8,6 +8,7 @@ export default function HistoryPage() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState(null);
+  const [lightboxImage, setLightboxImage] = useState(null);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -29,7 +30,6 @@ export default function HistoryPage() {
   async function loadHistory(userId) {
     setLoading(true);
     try {
-      // Lấy tất cả bài thi đã nộp của thí sinh
       const { data, error } = await supabase
         .from('exam_sessions')
         .select('*')
@@ -39,7 +39,6 @@ export default function HistoryPage() {
       
       if (error) throw error;
       
-      // Lấy chi tiết câu hỏi cho từng session
       const sessionsWithDetails = await Promise.all(
         data.map(async (session) => {
           const { data: questions, error: qErr } = await supabase
@@ -53,7 +52,6 @@ export default function HistoryPage() {
             .map(id => questions.find(q => q.id === id))
             .filter(Boolean);
           
-          // Lấy câu trả lời của thí sinh
           const { data: submissions, error: subErr } = await supabase
             .from('submissions')
             .select('*')
@@ -90,6 +88,11 @@ export default function HistoryPage() {
     } else {
       setSelectedSession(sessionId);
     }
+  };
+
+  // Kiểm tra câu trả lời đúng hay sai (dựa trên score)
+  const isAnswerCorrect = (answer, maxScore) => {
+    return answer?.score === maxScore;
   };
 
   return (
@@ -156,15 +159,15 @@ export default function HistoryPage() {
                     <div className={styles.questionsList}>
                       {session.questions.map((q, qIdx) => {
                         const answer = session.answers[q.id];
-                        const isCorrect = answer?.is_correct;
                         const maxScore = q.score || 0;
                         const achievedQScore = answer?.score || 0;
+                        const isCorrect = achievedQScore === maxScore && maxScore > 0;
                         
                         return (
                           <div key={q.id} className={styles.questionItem}>
                             <div className={styles.questionHeader}>
                               <span className={styles.questionNumber}>Câu {qIdx + 1}</span>
-                              <span className={`${styles.questionScore} ${achievedQScore === maxScore ? styles.fullScore : ''}`}>
+                              <span className={`${styles.questionScore} ${isCorrect ? styles.fullScore : ''}`}>
                                 {isGraded ? `${achievedQScore}/${maxScore}` : `${maxScore} điểm`}
                               </span>
                             </div>
@@ -177,13 +180,41 @@ export default function HistoryPage() {
                               {answer?.image_urls && answer.image_urls.length > 0 && (
                                 <div className={styles.answerImages}>
                                   {answer.image_urls.map((url, i) => (
-                                    <img key={i} src={url} alt={`answer ${i+1}`} className={styles.answerImage} />
+                                    <img 
+                                      key={i} 
+                                      src={url} 
+                                      alt={`answer ${i+1}`} 
+                                      className={styles.answerImage}
+                                      onClick={() => setLightboxImage(url)}
+                                      style={{ cursor: 'pointer' }}
+                                    />
                                   ))}
                                 </div>
                               )}
                               {isGraded && (
                                 <div className={`${styles.gradeResult} ${isCorrect ? styles.correct : styles.wrong}`}>
                                   {isCorrect ? '✓ Đúng' : '✗ Sai'}
+                                </div>
+                              )}
+                              {/* Hiển thị nhận xét của giám khảo */}
+                              {answer?.feedback && (
+                                <div className={styles.feedbackSection}>
+                                  <div className={styles.feedbackLabel}>📝 Nhận xét của giám khảo:</div>
+                                  <div className={styles.feedbackText}>{answer.feedback}</div>
+                                  {answer.feedback_images && answer.feedback_images.length > 0 && (
+                                    <div className={styles.feedbackImages}>
+                                      {answer.feedback_images.map((url, i) => (
+                                        <img 
+                                          key={i} 
+                                          src={url} 
+                                          alt={`feedback ${i+1}`} 
+                                          className={styles.feedbackImage}
+                                          onClick={() => setLightboxImage(url)}
+                                          style={{ cursor: 'pointer' }}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -196,6 +227,16 @@ export default function HistoryPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Lightbox xem ảnh to */}
+      {lightboxImage && (
+        <div className={styles.lightbox} onClick={() => setLightboxImage(null)}>
+          <div className={styles.lightboxContent}>
+            <span className={styles.lightboxClose} onClick={() => setLightboxImage(null)}>&times;</span>
+            <img className={styles.lightboxImage} src={lightboxImage} alt="Ảnh to" />
+          </div>
         </div>
       )}
     </div>
