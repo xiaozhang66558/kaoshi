@@ -1,6 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const SHEET_RANGE = 'Sheet1!A2:E1000';
+// Đọc từ cột A đến G (series, position, question_en, question_zh, question_vi, score, difficulty)
+const SHEET_RANGE = 'Sheet1!A2:G1000';
 
 exports.handler = async (event) => {
   const headers = {
@@ -28,20 +29,23 @@ exports.handler = async (event) => {
     const rows = sheetsData.values || [];
 
     const questions = rows
-      .filter(row => row.length >= 3 && row[2])
+      .filter(row => row.length >= 4 && row[2]) // cần có câu hỏi tiếng Anh
       .map((row, idx) => {
-        const diffValue = String(row[4] || '1').trim();
+        // Chuyển đổi difficulty từ số sang text
+        const diffValue = String(row[6] || '1').trim();
         let difficulty = 'medium';
         if (diffValue === '1') difficulty = 'easy';
         else if (diffValue === '2') difficulty = 'medium';
         else if (diffValue === '3') difficulty = 'hard';
         
         return {
-          sheet_row_id: `q_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+          sheet_row_id: `row_${idx + 1}`,
           series:       String(row[0] || '').trim(),
           position:     String(row[1] || '').trim(),
-          question:     String(row[2] || '').trim(),
-          score:        parseInt(row[3]) || 10,
+          question_en:  String(row[2] || '').trim(),
+          question_zh:  String(row[3] || '').trim(),
+          question_vi:  String(row[4] || '').trim(),
+          score:        parseInt(row[5]) || 10,
           difficulty:   difficulty,
           is_active:    true,
           synced_at:    new Date().toISOString(),
@@ -58,31 +62,29 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Insert dữ liệu mới
+    // Xóa dữ liệu cũ và insert mới
+    const { error: deleteError } = await supabase
+      .from('questions_cache')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    if (deleteError) throw deleteError;
+
     const { error: insertError } = await supabase
       .from('questions_cache')
       .insert(questions);
-
+    
     if (insertError) throw insertError;
 
-    // Vô hiệu hóa câu hỏi không còn trong sheet
-    const activeIds = questions.map(q => q.sheet_row_id);
-    if (activeIds.length > 0) {
-      const { error: updateError } = await supabase
-        .from('questions_cache')
-        .update({ is_active: false })
-        .not('sheet_row_id', 'in', `(${activeIds.map(id => `"${id}"`).join(',')})`);
-      if (updateError) throw updateError;
-    }
-
-    console.log(`[sync-questions] Đã đồng bộ ${questions.length} câu hỏi`);
+    console.log(`[sync-questions] Đã đồng bộ ${questions.length} câu hỏi với 3 ngôn ngữ`);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: questions.length
+        synced: questions.length,
+        languages: ['en', 'zh', 'vi']
       }),
     };
   } catch (err) {
