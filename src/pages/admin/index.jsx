@@ -664,7 +664,7 @@ export default function AdminPage() {
                 <tbody>
                   {sessions.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className={styles.empty}>{t('no_exams')}<\/td>
+                      <td colSpan={9} className={styles.empty}>{t('no_exams')}</table>
                     </tr>
                   ) : (
                     sessions.map(s => {
@@ -763,7 +763,7 @@ export default function AdminPage() {
                 <tbody>
                   {submittedSessions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className={styles.empty}>{t('no_pending')}<\/td>
+                      <td colSpan={7} className={styles.empty}>{t('no_pending')}</td>
                     </tr>
                   ) : (
                     submittedSessions.map(s => {
