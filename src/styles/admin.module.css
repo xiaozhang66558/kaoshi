@@ -176,7 +176,10 @@
 
 /* ===== BADGES ===== */
 .seriesBadge, .positionBadge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
   padding: 0.25rem 0.75rem;
   border-radius: 40px;
   font-size: 0.75rem;
@@ -205,12 +208,22 @@
 .table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   min-width: 800px;
 }
 
+/* Độ rộng các cột */
+.table th:nth-child(1) { width: 18%; }  /* Thí sinh */
+.table th:nth-child(2) { width: 10%; }  /* Series */
+.table th:nth-child(3) { width: 10%; }  /* Position */
+.table th:nth-child(4) { width: 20%; }  /* Thời gian nộp */
+.table th:nth-child(5) { width: 8%; }   /* Điểm */
+.table th:nth-child(6) { width: 12%; }  /* Trạng thái */
+.table th:nth-child(7) { width: 22%; }  /* Hành động */
+
 .table th {
-  padding: 1rem;
-  text-align: left;
+  padding: 1rem 0.75rem;
+  text-align: center;
   background: rgba(248, 250, 252, 0.8);
   color: #475569;
   font-weight: 600;
@@ -220,24 +233,54 @@
 }
 
 .table td {
-  padding: 1rem;
+  padding: 1rem 0.75rem;
+  text-align: center;
   border-bottom: 1px solid #e2e8f0;
   color: #334155;
+  vertical-align: middle;
+}
+
+/* Cột Thí sinh căn trái */
+.table th:first-child,
+.table td:first-child {
+  text-align: left;
 }
 
 .table tbody tr:hover {
   background: rgba(248, 250, 252, 0.5);
 }
 
+/* Name cell với avatar */
 .nameCell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   font-weight: 600;
   color: #1e293b;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
 }
 
 .username {
   font-size: 0.7rem;
   color: #94a3b8;
-  margin-left: 0.25rem;
 }
 
 .timeCell {
@@ -246,17 +289,16 @@
   white-space: nowrap;
 }
 
-.centerCell {
-  text-align: center;
-}
-
 /* ===== SCORE PILLS ===== */
 .scorePill {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  padding: 0.25rem 0.5rem;
   border-radius: 40px;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .scorePill.pass {
@@ -276,15 +318,23 @@
   border-radius: 40px;
   font-size: 0.8rem;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
 }
 
 /* ===== STATUS BADGES ===== */
 .badgeGraded, .badgePending, .badgeProgress {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
   padding: 0.25rem 0.75rem;
   border-radius: 40px;
   font-size: 0.7rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .badgeGraded {
@@ -313,6 +363,9 @@
   font-size: 0.75rem;
   font-weight: 500;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .detailBtn:hover {
@@ -330,6 +383,9 @@
   font-size: 0.75rem;
   font-weight: 500;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .deleteBtn:hover {
@@ -341,6 +397,7 @@
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  justify-content: center;
   white-space: nowrap;
 }
 
@@ -636,6 +693,11 @@
 }
 
 /* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  .table th:nth-child(4) { width: 15%; }
+  .table th:nth-child(7) { width: 25%; }
+}
+
 @media (max-width: 768px) {
   .page {
     padding: 1rem;
@@ -659,5 +721,13 @@
   .tabs button {
     font-size: 0.8rem;
     padding: 0.5rem;
+  }
+  
+  .tableWrap {
+    overflow-x: auto;
+  }
+  
+  .table {
+    min-width: 700px;
   }
 }
