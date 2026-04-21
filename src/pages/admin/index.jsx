@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase, getProfile, getAllSessions, getSessionDetail, getSubmittedSessions, gradeSubmission, saveFeedback } from '../../lib/supabase';
 import Modal from '../../components/Modal';
+import { useLanguage } from '../../contexts/LanguageContext';
 import styles from '../../styles/admin.module.css';
 
 const SYNC_URL = '/.netlify/functions/sync-questions';
 
 export default function AdminPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [sessions, setSessions] = useState([]);
   const [submittedSessions, setSubmittedSessions] = useState([]);
   const [total, setTotal] = useState(0);
@@ -32,7 +34,6 @@ export default function AdminPage() {
   const [uploadingFeedback, setUploadingFeedback] = useState(false);
   const [activeSubmissionId, setActiveSubmissionId] = useState(null);
 
-  // Lấy danh sách series và position để hiển thị trong dropdown
   async function loadFilterOptions() {
     try {
       const { data: seriesData } = await supabase
@@ -55,7 +56,6 @@ export default function AdminPage() {
     }
   }
   
-  // Gọi hàm này trong useEffect khi component mount
   useEffect(() => {
     loadFilterOptions();
   }, []);
@@ -81,8 +81,6 @@ export default function AdminPage() {
         
         const { data: sessions, error } = await query;
         if (error) throw error;
-        
-        console.log('Sessions:', sessions);
         
         const userIds = [...new Set(sessions.map(s => s.user_id).filter(Boolean))];
         let profileMap = {};
@@ -164,7 +162,6 @@ export default function AdminPage() {
     }
   }
 
-  // Xác nhận xoá bài thi
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     
@@ -181,10 +178,10 @@ export default function AdminPage() {
         .eq('id', deleteTarget.sessionId);
       if (sessionError) throw sessionError;
       
-      alert('✅ Đã xoá bài thi thành công!');
+      alert(t('delete_success'));
       fetchData();
     } catch (err) {
-      alert('❌ Xoá thất bại: ' + err.message);
+      alert(t('delete_failed') + err.message);
     } finally {
       setShowDeleteModal(false);
       setDeleteTarget(null);
@@ -210,16 +207,15 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      alert(`✅ Sync thành công! Đã cập nhật ${data.synced} câu hỏi.`);
+      alert(t('sync_success').replace('{count}', data.synced));
       fetchData();
     } catch (err) {
-      alert(`❌ Sync lỗi: ${err.message}`);
+      alert(t('sync_failed') + err.message);
     } finally {
       setSyncing(false);
     }
   }
 
-  // Hàm xử lý dán ảnh cho feedback
   const handlePasteFeedbackImage = async (event) => {
     const items = event.clipboardData?.items;
     if (!items) return;
@@ -234,7 +230,7 @@ export default function AdminPage() {
     if (imageItems.length === 0) return;
     
     if (feedbackImages.length + imageItems.length > 3) {
-      alert('⚠️ Chỉ được dán tối đa 3 ảnh mỗi nhận xét!');
+      alert(`⚠️ ${t('images_attached')}`);
       return;
     }
     
@@ -272,24 +268,24 @@ export default function AdminPage() {
 
   const saveFeedbackToDb = async (submissionId) => {
     if (!feedbackText.trim() && feedbackImages.length === 0) {
-      alert('Vui lòng nhập nhận xét hoặc thêm ảnh');
+      alert(t('enter_feedback'));
       return;
     }
     
     try {
       await saveFeedback(submissionId, feedbackText, feedbackImages);
-      alert('✅ Đã lưu nhận xét!');
+      alert('✅ ' + t('save_feedback'));
       setFeedbackText('');
       setFeedbackImages([]);
       setActiveSubmissionId(null);
       const updated = await getSessionDetail(detail.session.id);
       setDetail(updated);
     } catch (err) {
-      alert('❌ Lỗi lưu nhận xét: ' + err.message);
+      alert('❌ ' + t('save_feedback') + ': ' + err.message);
     }
   };
 
-  // Chi tiết bài thi với 2 nút Đúng/Sai và feedback
+  // Chi tiết bài thi
   if (detail && !detail.loading) {
     const { session, submissions } = detail;
     const totalPossible = submissions.reduce((sum, s) => sum + (s.questions_cache?.score || 0), 0);
@@ -299,12 +295,12 @@ export default function AdminPage() {
     return (
       <div className={styles.page}>
         <div className={styles.detailHeader}>
-          <button className={styles.backBtn} onClick={() => setDetail(null)}>← Quay lại</button>
+          <button className={styles.backBtn} onClick={() => setDetail(null)}>← {t('back')}</button>
           <div>
             <h2>{session.profiles?.full_name || session.user_id}</h2>
-            <p>{session.profiles?.email || ''} · Nộp lúc {new Date(session.submitted_at).toLocaleString()}</p>
+            <p>{session.profiles?.email || ''} · {t('submit_time')}: {new Date(session.submitted_at).toLocaleString()}</p>
           </div>
-          <div className={styles.scoreBadge}>Điểm: {currentTotal}/{totalPossible}</div>
+          <div className={styles.scoreBadge}>{t('score')}: {currentTotal}/{totalPossible}</div>
         </div>
         
         <div className={styles.submissionList}>
@@ -316,17 +312,16 @@ export default function AdminPage() {
             return (
               <div key={sub.id} className={styles.subCard}>
                 <div className={styles.subHeader}>
-                  <strong>Câu {idx+1}:</strong> {q?.question || 'Câu hỏi không tồn tại'}
+                  <strong>{t('question')} {idx+1}:</strong> {q?.question || 'Câu hỏi không tồn tại'}
                 </div>
                 <div className={styles.subAnswer}>
-                  <strong>Câu trả lời của thí sinh:</strong>
-                  <p className={styles.answerText}>{sub.user_answer || '(chưa có câu trả lời)'}</p>
+                  <strong>{t('student_answer')}</strong>
+                  <p className={styles.answerText}>{sub.user_answer || t('no_answer')}</p>
                 </div>
                 
-                {/* Hiển thị ảnh thí sinh */}
                 {sub.image_urls && sub.image_urls.length > 0 && (
                   <div className={styles.answerImages}>
-                    <strong>Ảnh đính kèm:</strong>
+                    <strong>{t('images')}</strong>
                     <div className={styles.imagesContainer}>
                       {sub.image_urls.map((url, i) => (
                         <img 
@@ -342,32 +337,30 @@ export default function AdminPage() {
                   </div>
                 )}
                 
-                {/* 2 nút Đúng/Sai */}
                 <div className={styles.grading}>
                   <div className={styles.gradingButtons}>
                     <button 
                       className={`${styles.gradeBtn} ${isCorrectGraded ? styles.correctActive : ''}`}
                       onClick={() => handleGrade(sub.id, true)}
                     >
-                      ✓ Đúng
+                      ✓ {t('correct')}
                     </button>
                     <button 
                       className={`${styles.gradeBtn} ${isWrongGraded ? styles.wrongActive : ''}`}
                       onClick={() => handleGrade(sub.id, false)}
                     >
-                      ✗ Sai
+                      ✗ {t('wrong')}
                     </button>
                   </div>
                   <span className={styles.scoreDisplay}>
-                    Điểm: {sub.score || 0} / {q?.score || 0}
+                    {t('point')}: {sub.score || 0} / {q?.score || 0}
                   </span>
                 </div>
 
-                {/* Hiển thị feedback đã có */}
                 {sub.feedback && (
                   <div className={styles.feedbackSection}>
                     <div className={styles.feedbackHeader}>
-                      <span>📝 Nhận xét của giám khảo:</span>
+                      <span>📝 {t('examiner_feedback')}</span>
                     </div>
                     <div className={styles.feedbackText}>{sub.feedback}</div>
                     {sub.feedback_images && sub.feedback_images.length > 0 && (
@@ -387,7 +380,6 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                {/* Form thêm/sửa nhận xét */}
                 {activeSubmissionId === sub.id ? (
                   <div className={styles.feedbackForm}>
                     <textarea
@@ -396,7 +388,7 @@ export default function AdminPage() {
                       value={feedbackText}
                       onChange={(e) => setFeedbackText(e.target.value)}
                       onPaste={handlePasteFeedbackImage}
-                      placeholder="Nhập nhận xét cho câu trả lời này..."
+                      placeholder={t('enter_feedback')}
                     />
                     <div className={styles.feedbackImagesContainer}>
                       <div className={styles.feedbackImagesGrid}>
@@ -420,22 +412,22 @@ export default function AdminPage() {
                               ) : (
                                 <div className={styles.imagePlaceholder}>
                                   <span>🖼️</span>
-                                  <span>Chưa có ảnh</span>
-                                  <span className={styles.imageHint}>(Ctrl+V để dán)</span>
+                                  <span>{t('no_image')}</span>
+                                  <span className={styles.imageHint}>{t('paste_image')}</span>
                                 </div>
                               )}
                             </div>
                           );
                         })}
                       </div>
-                      {uploadingFeedback && <span className={styles.uploadingText}>⏳ Đang tải ảnh...</span>}
+                      {uploadingFeedback && <span className={styles.uploadingText}>⏳ {t('submitting')}</span>}
                     </div>
                     <div className={styles.feedbackActions}>
                       <button 
                         className={styles.saveFeedbackBtn} 
                         onClick={() => saveFeedbackToDb(sub.id)}
                       >
-                        💾 Lưu nhận xét
+                        💾 {t('save_feedback')}
                       </button>
                       <button 
                         className={styles.cancelFeedbackBtn} 
@@ -445,7 +437,7 @@ export default function AdminPage() {
                           setFeedbackImages([]);
                         }}
                       >
-                        Hủy
+                        {t('cancel')}
                       </button>
                     </div>
                   </div>
@@ -458,7 +450,7 @@ export default function AdminPage() {
                       setFeedbackImages(sub.feedback_images || []);
                     }}
                   >
-                    ✏️ {sub.feedback ? 'Sửa nhận xét' : 'Thêm nhận xét'}
+                    ✏️ {sub.feedback ? t('edit_feedback') : t('add_feedback')}
                   </button>
                 )}
               </div>
@@ -466,7 +458,6 @@ export default function AdminPage() {
           })}
         </div>
         
-        {/* Nút Xong */}
         <div className={styles.doneSection}>
           <button 
             className={styles.doneBtn} 
@@ -477,11 +468,10 @@ export default function AdminPage() {
               fetchData();
             }}
           >
-            {allGraded ? '✅ Xong - Quay lại danh sách' : '📝 Lưu và quay lại'}
+            {allGraded ? t('done_back') : t('save_and_back')}
           </button>
         </div>
   
-        {/* Modal xem ảnh to */}
         {lightboxImage && (
           <div className={styles.lightbox} onClick={() => setLightboxImage(null)}>
             <div className={styles.lightboxContent}>
@@ -499,39 +489,37 @@ export default function AdminPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
-          <h1 className={styles.title}>Admin Dashboard</h1>
-          <p className={styles.subtitle}>Quản lý bài thi và chấm điểm</p>
+          <h1 className={styles.title}>{t('admin_dashboard')}</h1>
+          <p className={styles.subtitle}>{t('manage_exams')}</p>
         </div>
         <div className={styles.headerActions}>
           <button className={styles.syncBtn} onClick={syncQuestions} disabled={syncing}>
-            {syncing ? '⏳ Đang sync...' : '🔄 Sync Google Sheets'}
+            {syncing ? '⏳...' : t('sync_questions')}
           </button>
           <button className={styles.logoutBtn} onClick={async () => { 
             await supabase.auth.signOut(); 
             router.replace('/'); 
           }}>
-            Đăng xuất
+            {t('logout')}
           </button>
         </div>
       </header>
       
-      {/* Tabs */}
       <div className={styles.tabs}>
         <button className={tab === 'all' ? styles.activeTab : ''} onClick={() => { setTab('all'); setPage(1); }}>
-          📋 Tất cả bài thi
+          📋 {t('all_exams')}
         </button>
         <button className={tab === 'pending' ? styles.activeTab : ''} onClick={() => { setTab('pending'); setPage(1); }}>
-          ⏳ Chờ chấm điểm ({submittedSessions.length})
+          ⏳ {t('pending_exams')} ({submittedSessions.length})
         </button>
       </div>
 
-      {/* Bộ lọc - chỉ hiển thị khi ở tab "Tất cả bài thi" */}
       {tab === 'all' && (
         <div className={styles.filterBar}>
           <div className={styles.searchBox}>
             <input
               type="text"
-              placeholder="🔍 Tìm theo tên thí sinh..."
+              placeholder={t('search_student')}
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
               className={styles.searchInput}
@@ -543,7 +531,7 @@ export default function AdminPage() {
               onChange={(e) => setFilterSeries(e.target.value)}
               className={styles.filterSelect}
             >
-              <option value="">📋 Tất cả系列</option>
+              <option value="">{t('all_series')}</option>
               {seriesOptions.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <select 
@@ -551,39 +539,35 @@ export default function AdminPage() {
               onChange={(e) => setFilterPosition(e.target.value)}
               className={styles.filterSelect}
             >
-              <option value="">📋 Tất cả岗位</option>
+              <option value="">{t('all_position')}</option>
               {positionOptions.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
         </div>
       )}
 
-      {/* Nội dung chính */}
       {loading ? (
         <div className={styles.loadingBox}><div className={styles.spinner} /></div>
       ) : (
         <>
-          {/* Tab Tất cả bài thi */}
           {tab === 'all' && (
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>Thí sinh</th>
-                    <th>系列 (Series)</th>
-                    <th>岗位 (Position)</th>
-                    <th>Thời gian nộp</th>
-                    <th>Điểm</th>
-                    <th>Trạng thái</th>
+                    <th>{t('student')}</th>
+                    <th>{t('series')}</th>
+                    <th>{t('position')}</th>
+                    <th>{t('submit_time')}</th>
+                    <th>{t('score')}</th>
+                    <th>{t('status')}</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {sessions.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className={styles.empty}>
-                        {loading ? '⏳ Đang tải...' : '📭 Chưa có bài thi nào'}
-                      </td>
+                      <td colSpan={7} className={styles.empty}>{t('no_exams')}</td>
                     </tr>
                   ) : (
                     sessions.map(s => {
@@ -603,7 +587,7 @@ export default function AdminPage() {
                             <span className={styles.positionBadge}>{s.position || '—'}</span>
                           </td>
                           <td className={styles.timeCell}>
-                            {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : 'Chưa nộp'}
+                            {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : t('in_progress')}
                           </td>
                           <td className={styles.centerCell}>
                             <span className={`${styles.scorePill} ${isFullyGraded ? styles.pass : styles.fail}`}>
@@ -612,16 +596,16 @@ export default function AdminPage() {
                           </td>
                           <td className={styles.centerCell}>
                             {s.status === 'graded' ? (
-                              <span className={styles.badgeGraded}>✅ Đã chấm</span>
+                              <span className={styles.badgeGraded}>✅ {t('graded')}</span>
                             ) : s.status === 'submitted' ? (
-                              <span className={styles.badgePending}>⏳ Chờ chấm</span>
+                              <span className={styles.badgePending}>⏳ {t('waiting')}</span>
                             ) : (
-                              <span className={styles.badgeProgress}>📝 Đang thi</span>
+                              <span className={styles.badgeProgress}>📝 {t('in_progress')}</span>
                             )}
                           </td>
                           <td className={styles.actionCell}>
                             <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
-                              {s.status === 'submitted' ? 'Chấm điểm →' : 'Xem chi tiết →'}
+                              {s.status === 'submitted' ? t('grade') : t('view_detail')} →
                             </button>
                             <button 
                               className={styles.deleteBtn} 
@@ -633,10 +617,10 @@ export default function AdminPage() {
                                 setShowDeleteModal(true);
                               }}
                             >
-                              🗑️ Xoá
+                              🗑️ {t('delete')}
                             </button>
                           </td>
-                        </tr>
+                        </table>
                       );
                     })
                   )}
@@ -645,24 +629,23 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Tab Chờ chấm điểm */}
           {tab === 'pending' && (
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>Thí sinh</th>
-                    <th>系列 (Series)</th>
-                    <th>岗位 (Position)</th>
-                    <th>Thời gian nộp</th>
-                    <th>Điểm</th>
-                    <th>Hành động</th>
+                    <th>{t('student')}</th>
+                    <th>{t('series')}</th>
+                    <th>{t('position')}</th>
+                    <th>{t('submit_time')}</th>
+                    <th>{t('score')}</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {submittedSessions.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className={styles.empty}>🎉 Không có bài thi nào chờ chấm!</td>
+                      <td colSpan={6} className={styles.empty}>{t('no_pending')}</td>
                     </tr>
                   ) : (
                     submittedSessions.map(s => (
@@ -678,7 +661,7 @@ export default function AdminPage() {
                         </td>
                         <td>
                           <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
-                            Chấm điểm →
+                            {t('grade')} →
                           </button>
                         </td>
                       </tr>
@@ -691,15 +674,14 @@ export default function AdminPage() {
         </>
       )}
 
-      {/* Modal xác nhận xoá */}
       <Modal
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
-        title="Xác nhận xoá"
-        message={`Bạn có chắc chắn muốn xoá bài thi của thí sinh "${deleteTarget?.studentName}"?\nHành động này không thể hoàn tác!`}
+        title={t('confirm')}
+        message={t('delete_confirm').replace('{name}', deleteTarget?.studentName || '')}
         onConfirm={confirmDelete}
-        confirmText="Xoá"
-        cancelText="Hủy"
+        confirmText={t('delete')}
+        cancelText={t('cancel')}
       />
     </div>
   );
