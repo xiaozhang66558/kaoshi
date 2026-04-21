@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase, signUp, signInWithUsername, getProfile } from '../lib/supabase';
+import { useLanguage } from '../contexts/LanguageContext';
+import LanguageSelector from '../components/LanguageSelector';
 import styles from '../styles/auth.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [mode, setMode] = useState('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -34,7 +37,7 @@ export default function LoginPage() {
         else router.replace('/exam');
       } else {
         await signUp(username, password, fullName);
-        alert('Đăng ký thành công! Bạn có thể đăng nhập ngay.');
+        alert(t('register_success'));
         setMode('login');
         setUsername('');
         setPassword('');
@@ -58,9 +61,14 @@ export default function LoginPage() {
           <div className={styles.header}>
             <div className={styles.logo}>
               <div className={styles.logoIcon}>📘</div>
-              <h1 className={styles.logoText}>考试系统</h1>
+              <h1 className={styles.logoText}>{t('app_name')}</h1>
             </div>
-            <p className={styles.subtitle}>ExamFlow - Hệ thống thi trực tuyến</p>
+            <p className={styles.subtitle}>ExamFlow - {t('sign_in')}</p>
+          </div>
+
+          {/* Language Selector */}
+          <div className={styles.languageWrapper}>
+            <LanguageSelector />
           </div>
 
           <div className={styles.tabs}>
@@ -68,25 +76,23 @@ export default function LoginPage() {
               className={`${styles.tab} ${mode === 'login' ? styles.activeTab : ''}`}
               onClick={() => { setMode('login'); setError(''); }}
             >
-              登录
+              {t('sign_in')}
             </button>
             <button
               className={`${styles.tab} ${mode === 'register' ? styles.activeTab : ''}`}
               onClick={() => { setMode('register'); setError(''); }}
             >
-              首次设置
+              {t('sign_up')}
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className={styles.form}>
             <div className={styles.inputGroup}>
-              <div className={styles.inputIcon}>
-                <span>👤</span>
-              </div>
+              <div className={styles.inputIcon}>👤</div>
               <input
                 type="text"
                 className={styles.input}
-                placeholder="用户名"
+                placeholder={t('enter_username')}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -94,13 +100,11 @@ export default function LoginPage() {
             </div>
 
             <div className={styles.inputGroup}>
-              <div className={styles.inputIcon}>
-                <span>🔒</span>
-              </div>
+              <div className={styles.inputIcon}>🔒</div>
               <input
                 type="password"
                 className={styles.input}
-                placeholder="密码"
+                placeholder={t('enter_password')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -109,13 +113,11 @@ export default function LoginPage() {
 
             {mode === 'register' && (
               <div className={styles.inputGroup}>
-                <div className={styles.inputIcon}>
-                  <span>📝</span>
-                </div>
+                <div className={styles.inputIcon}>📝</div>
                 <input
                   type="text"
                   className={styles.input}
-                  placeholder="姓名"
+                  placeholder={t('enter_fullname')}
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   required
@@ -125,36 +127,36 @@ export default function LoginPage() {
 
             {mode === 'login' && (
               <div className={styles.forgotPassword}>
-                <a href="#" onClick={(e) => e.preventDefault()}>忘记密码？</a>
+                <a href="#" onClick={(e) => e.preventDefault()}>{t('forgot_password')}</a>
               </div>
             )}
 
             {error && <div className={styles.error}>{error}</div>}
 
             <button type="submit" className={styles.submitBtn} disabled={loading}>
-              {loading ? <div className={styles.spinner}></div> : (mode === 'login' ? '登录' : '注册')}
+              {loading ? <div className={styles.spinner}></div> : (mode === 'login' ? t('sign_in') : t('sign_up'))}
             </button>
           </form>
 
           <div className={styles.footer}>
             {mode === 'login' ? (
               <p>
-                没有账号？{' '}
+                {t('no_account')}{' '}
                 <button
                   className={styles.switchBtn}
                   onClick={() => { setMode('register'); setError(''); }}
                 >
-                  立即注册
+                  {t('sign_up_now')}
                 </button>
               </p>
             ) : (
               <p>
-                已有账号？{' '}
+                {t('has_account')}{' '}
                 <button
                   className={styles.switchBtn}
                   onClick={() => { setMode('login'); setError(''); }}
                 >
-                  返回登录
+                  {t('sign_in_now')}
                 </button>
               </p>
             )}
