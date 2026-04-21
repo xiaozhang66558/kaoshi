@@ -672,7 +672,9 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {submittedSessions.length === 0 ? (
-                    <tr><td colSpan={7} className={styles.empty}>{t('no_pending')}</td></tr>
+                    <tr>
+                      <td colSpan="7" className={styles.empty}>{t('no_pending')}</td>
+                    </tr>
                   ) : (
                     submittedSessions.map(s => {
                       let examDuration = '—';
@@ -687,10 +689,8 @@ export default function AdminPage() {
                           <td><strong>{s.profiles?.full_name || s.user_id}</strong></td>
                           <td><span className={styles.seriesBadge}>{s.series || '—'}</span></td>
                           <td><span className={styles.positionBadge}>{s.position || '—'}</span></td>
-                          <td className={styles.timeCell}>
-                            {new Date(s.submitted_at).toLocaleString()}
-                          </td>
-                          <td className={styles.timeCell}>{examDuration}</td>
+                          <td>{new Date(s.submitted_at).toLocaleString()}</td>
+                          <td>{examDuration}</td>
                           <td className={styles.centerCell}>
                             <span className={styles.scorePending}>{(s.score || 0)}/100</span>
                           </td>
