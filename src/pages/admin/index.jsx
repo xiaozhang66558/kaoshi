@@ -75,7 +75,7 @@ export default function AdminPage() {
       if (tab === 'all') {
         let query = supabase
           .from('exam_sessions')
-          .select('*, graded_by')
+          .select('*, started_at, submitted_at, graded_by')
           .neq('status', 'in_progress')
           .order('submitted_at', { ascending: false });
         
@@ -562,6 +562,7 @@ export default function AdminPage() {
                     <th>{t('series')}</th>
                     <th>{t('position')}</th>
                     <th>{t('submit_time')}</th>
+                    <th>Thời gian làm bài</th>
                     <th>{t('score')}</th>
                     <th>{t('status')}</th>
                     <th>Người chấm</th>
@@ -570,10 +571,19 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {sessions.length === 0 ? (
-                    <tr><td colSpan={8} className={styles.empty}>{t('no_exams')}</td></tr>
+                    <tr><td colSpan={9} className={styles.empty}>{t('no_exams')}</td></tr>
                   ) : (
                     sessions.map(s => {
                       const isFullyGraded = s.status === 'graded';
+                      // Tính thời gian làm bài
+                      let examDuration = '—';
+                      if (s.submitted_at && s.started_at) {
+                        const diffMs = new Date(s.submitted_at) - new Date(s.started_at);
+                        const diffMinutes = Math.floor(diffMs / 60000);
+                        const diffSeconds = Math.floor((diffMs % 60000) / 1000);
+                        examDuration = `${diffMinutes} phút ${diffSeconds} giây`;
+                      }
+                      
                       return (
                         <tr key={s.id}>
                           <td className={styles.nameCell}>
@@ -590,6 +600,9 @@ export default function AdminPage() {
                           </td>
                           <td className={styles.timeCell}>
                             {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : t('in_progress')}
+                          </td>
+                          <td className={styles.timeCell}>
+                            {examDuration}
                           </td>
                           <td className={styles.centerCell}>
                             <span className={`${styles.scorePill} ${isFullyGraded ? styles.pass : styles.fail}`}>
@@ -649,32 +662,45 @@ export default function AdminPage() {
                     <th>{t('series')}</th>
                     <th>{t('position')}</th>
                     <th>{t('submit_time')}</th>
+                    <th>Thời gian làm bài</th>
                     <th>{t('score')}</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {submittedSessions.length === 0 ? (
-                    <tr><td colSpan={6} className={styles.empty}>{t('no_pending')}</td></tr>
+                    <tr><td colSpan={7} className={styles.empty}>{t('no_pending')}</td></tr>
                   ) : (
-                    submittedSessions.map(s => (
-                      <tr key={s.id}>
-                        <td><strong>{s.profiles?.full_name || s.user_id}</strong></td>
-                        <td><span className={styles.seriesBadge}>{s.series || '—'}</span></td>
-                        <td><span className={styles.positionBadge}>{s.position || '—'}</span></td>
-                        <td className={styles.timeCell}>
-                          {new Date(s.submitted_at).toLocaleString()}
-                        </td>
-                        <td className={styles.centerCell}>
-                          <span className={styles.scorePending}>{(s.score || 0)}/100</span>
-                        </td>
-                        <td>
-                          <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
-                            {t('grade')} →
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    submittedSessions.map(s => {
+                      let examDuration = '—';
+                      if (s.submitted_at && s.started_at) {
+                        const diffMs = new Date(s.submitted_at) - new Date(s.started_at);
+                        const diffMinutes = Math.floor(diffMs / 60000);
+                        const diffSeconds = Math.floor((diffMs % 60000) / 1000);
+                        examDuration = `${diffMinutes} phút ${diffSeconds} giây`;
+                      }
+                      return (
+                        <tr key={s.id}>
+                          <td><strong>{s.profiles?.full_name || s.user_id}</strong></td>
+                          <td><span className={styles.seriesBadge}>{s.series || '—'}</span></td>
+                          <td><span className={styles.positionBadge}>{s.position || '—'}</span></td>
+                          <td className={styles.timeCell}>
+                            {new Date(s.submitted_at).toLocaleString()}
+                          </td>
+                          <td className={styles.timeCell}>
+                            {examDuration}
+                          </td>
+                          <td className={styles.centerCell}>
+                            <span className={styles.scorePending}>{(s.score || 0)}/100</span>
+                          </td>
+                          <td>
+                            <button className={styles.detailBtn} onClick={() => openDetail(s.id)}>
+                              {t('grade')} →
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
