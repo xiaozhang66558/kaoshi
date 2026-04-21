@@ -1,0 +1,29 @@
+.languageSelector {
+  display: flex;
+  gap: 0.25rem;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.25rem;
+  border-radius: 40px;
+}
+
+.langBtn {
+  padding: 0.3rem 0.8rem;
+  border: none;
+  background: transparent;
+  border-radius: 32px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  color: #64748b;
+}
+
+.langBtn:hover {
+  color: #4f46e5;
+}
+
+.langBtn.active {
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
