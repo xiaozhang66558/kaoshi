@@ -686,7 +686,7 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {submittedSessions.length === 0 ? (
-                    <tr>
+                    <td>
                       <td colSpan={7} className={styles.empty}>{t('no_pending')}</td>
                     </tr>
                   ) : (
