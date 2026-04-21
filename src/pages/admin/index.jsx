@@ -335,9 +335,7 @@ export default function AdminPage() {
                   {sessions.length === 0 ? (
                     <tr>
                       <td colSpan={7} className={styles.empty}>
-                        {searchName || filterSeries || filterPosition 
-                          ? '🔍 Không tìm thấy bài thi nào phù hợp'
-                          : '📭 Chưa có bài thi nào'}
+                        {loading ? '⏳ Đang tải...' : '📭 Chưa có bài thi nào'}
                       </td>
                     </tr>
                   ) : (
@@ -346,13 +344,17 @@ export default function AdminPage() {
                       return (
                         <tr key={s.id}>
                           <td className={styles.nameCell}>
-                            {s.profiles?.full_name || s.user_id}
+                            <strong>{s.profiles?.full_name || s.user_id}</strong>
                             {s.profiles?.username && (
                               <span className={styles.username}>({s.profiles.username})</span>
                             )}
                           </td>
-                          <td>{s.series || '—'}</td>
-                          <td>{s.position || '—'}</td>
+                          <td className={styles.centerCell}>
+                            <span className={styles.seriesBadge}>{s.series || '—'}</span>
+                          </td>
+                          <td className={styles.centerCell}>
+                            <span className={styles.positionBadge}>{s.position || '—'}</span>
+                          </td>
                           <td className={styles.timeCell}>
                             {s.submitted_at ? new Date(s.submitted_at).toLocaleString() : 'Chưa nộp'}
                           </td>
@@ -406,9 +408,9 @@ export default function AdminPage() {
                   ) : (
                     submittedSessions.map(s => (
                       <tr key={s.id}>
-                        <td>{s.profiles?.full_name || s.user_id}</td>
-                        <td>{s.series || '—'}</td>
-                        <td>{s.position || '—'}</td>
+                        <td><strong>{s.profiles?.full_name || s.user_id}</strong></td>
+                        <td><span className={styles.seriesBadge}>{s.series || '—'}</span></td>
+                        <td><span className={styles.positionBadge}>{s.position || '—'}</span></td>
                         <td className={styles.timeCell}>
                           {new Date(s.submitted_at).toLocaleString()}
                         </td>
