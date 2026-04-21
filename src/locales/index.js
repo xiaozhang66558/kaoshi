@@ -13,6 +13,15 @@ const locales = {
     save: 'Lưu',
     edit: 'Sửa',
     close: 'Đóng',
+    calculating: 'Đang tính...',
+    
+    // Ranking
+    ranking: '排行榜',
+    rank: '排名',
+    exam_count: '次数',
+    avg_score: '平均分',
+    scores: '分数',
+    ranking_title: '🏆 排行榜',
     
     // Auth Page
     sign_in: 'Đăng nhập',
@@ -154,6 +163,15 @@ const locales = {
     save: '保存',
     edit: '编辑',
     close: '关闭',
+    calculating: '计算中...',
+    
+    // Ranking
+    ranking: '排行榜',
+    rank: '排名',
+    exam_count: '次数',
+    avg_score: '平均分',
+    scores: '分数',
+    ranking_title: '🏆 排行榜',
     
     // Auth Page
     sign_in: '登录',
@@ -295,6 +313,15 @@ const locales = {
     save: 'Save',
     edit: 'Edit',
     close: 'Close',
+    calculating: 'Calculating...',
+    
+    // Ranking
+    ranking: 'Ranking',
+    rank: 'Rank',
+    exam_count: 'Attempts',
+    avg_score: 'Avg Score',
+    scores: 'Scores',
+    ranking_title: '🏆 Ranking',
     
     // Auth Page
     sign_in: 'Sign In',
