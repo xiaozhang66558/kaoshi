@@ -200,23 +200,17 @@ export async function getSessionWithQuestions(sessionId) {
     .eq('id', sessionId)
     .single();
   if (sErr) throw sErr;
+  
+  // Lấy câu hỏi với tất cả các cột ngôn ngữ
   const { data: questions, error: qErr } = await supabase
     .from('questions_cache')
-    .select('*')
+    .select('id, question_en, question_zh, question_vi, option_a, option_b, option_c, option_d, topic, difficulty, score, series, position')
     .in('id', session.question_ids);
   if (qErr) throw qErr;
+  
+  // Sắp xếp theo thứ tự
   const ordered = session.question_ids.map(id => questions.find(q => q.id === id)).filter(Boolean);
   return { session, questions: ordered };
-}
-
-export async function saveAnswer(sessionId, questionId, userAnswer, imageUrls = []) {
-  const { error } = await supabase
-    .from('submissions')
-    .upsert(
-      { session_id: sessionId, question_id: questionId, user_answer: userAnswer, image_urls: imageUrls },
-      { onConflict: 'session_id,question_id' }
-    );
-  if (error) throw error;
 }
 
 export async function getAnswers(sessionId) {
