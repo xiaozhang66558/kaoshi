@@ -122,23 +122,30 @@ export default function ExamPage() {
     }
   }
 
-  const handleAnswer = useCallback(async (questionId, text) => {
-    console.log('🔵 handleAnswer called:', { questionId, text });
-    setSaving(true);
-    try {
-      const currentImages = imagesCache.current[questionId] || answers[questionId]?.images || [];
-      console.log('🟡 Saving to DB:', { sessionId: session.id, questionId, text });
-      await saveAnswer(session.id, questionId, text, currentImages);
-      console.log('🟢 Save success');
-      setAnswers(prev => ({
-        ...prev,
-        [questionId]: { text, images: currentImages }
-      }));
-    } catch (e) { 
-      console.error('🔴 Save error:', e); 
-    } finally { 
-      setSaving(false); 
+  const debounceTimer = useRef(null);
+
+  const handleAnswer = useCallback((questionId, text) => {
+    // Cập nhật state ngay lập tức (không chờ)
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: { text, images: prev[questionId]?.images || [] }
+    }));
+    
+    // Clear timer cũ nếu có
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
     }
+    
+    // Set timer mới, sau 800ms mới lưu vào database
+    debounceTimer.current = setTimeout(async () => {
+      console.log('💾 Saving to database after debounce...');
+      try {
+        const currentImages = answers[questionId]?.images || [];
+        await saveAnswer(session.id, questionId, text, currentImages);
+      } catch (e) {
+        console.error('Save error:', e);
+      }
+    }, 800);
   }, [session, answers]);
 
   const handlePasteImage = async (questionId, event) => {
