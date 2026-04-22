@@ -1024,3 +1024,24 @@
   padding: 2rem;
   color: #94a3b8;
 }
+/* Ảnh câu hỏi trong admin */
+.questionImageAdmin {
+  margin: 0.75rem 0;
+  text-align: center;
+  background: #f8fafc;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.questionImgAdmin {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.questionImgAdmin:hover {
+  transform: scale(1.02);
+}
