@@ -807,7 +807,7 @@ export default function AdminPage() {
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
-                  <td>
+                  <tr>
                     <th>{t('student')}</th>
                     <th>{t('series')}</th>
                     <th>{t('position')}</th>
