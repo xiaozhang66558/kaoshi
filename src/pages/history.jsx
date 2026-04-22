@@ -6,11 +6,24 @@ import styles from '../styles/history.module.css';
 
 export default function HistoryPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
+
+  // Hàm lấy câu hỏi theo ngôn ngữ
+  const getQuestionByLanguage = (q) => {
+    if (!q) return '⚠️ Câu hỏi không tồn tại';
+    if (language === 'en') return q.question_en || q.question;
+    if (language === 'zh') return q.question_zh || q.question;
+    return q.question_vi || q.question;
+  };
+
+  // Hàm lấy danh sách ảnh câu hỏi
+  const getQuestionImages = (q) => {
+    return [q?.image_1, q?.image_2, q?.image_3].filter(url => url && url.trim());
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -48,7 +61,6 @@ export default function HistoryPage() {
             .in('id', session.question_ids || []);
           
           if (qErr || !questions || questions.length === 0) {
-            // Nếu không có câu hỏi, bỏ qua bài thi này
             return null;
           }
           
@@ -57,7 +69,6 @@ export default function HistoryPage() {
           const validQuestions = session.question_ids.filter(id => existingQuestionIds.includes(id));
           
           if (validQuestions.length !== session.question_ids.length) {
-            // Thiếu câu hỏi, bỏ qua bài thi này
             return null;
           }
           
@@ -88,7 +99,7 @@ export default function HistoryPage() {
         })
       );
       
-      // Lọc bỏ các session null (không có câu hỏi)
+      // Lọc bỏ các session null
       const validSessions = sessionsWithDetails.filter(s => s !== null);
       setSessions(validSessions);
     } catch (err) {
@@ -135,7 +146,7 @@ export default function HistoryPage() {
       ) : sessions.length === 0 ? (
         <div className={styles.emptyState}>
           <span className={styles.emptyIcon}>📭</span>
-          <p>Bạn chưa có bài thi nào</p>
+          <p>{t('no_exams')}</p>
           <button className={styles.startBtn} onClick={() => router.push('/exam')}>
             {t('start_exam')}
           </button>
@@ -151,7 +162,7 @@ export default function HistoryPage() {
               <div key={session.id} className={styles.historyCard}>
                 <div className={styles.cardHeader} onClick={() => toggleSessionDetail(session.id)}>
                   <div className={styles.cardInfo}>
-                    <span className={styles.cardNumber}>Bài thi #{idx + 1}</span>
+                    <span className={styles.cardNumber}>{t('exam_no')} #{idx + 1}</span>
                     <span className={styles.cardDate}>
                       {new Date(session.submitted_at).toLocaleString()}
                     </span>
@@ -169,9 +180,9 @@ export default function HistoryPage() {
                 {selectedSession === session.id && (
                   <div className={styles.cardDetail}>
                     <div className={styles.detailHeader}>
-                      <span>系列: {session.series || '—'}</span>
-                      <span>岗位: {session.position || '—'}</span>
-                      <span>Số câu: {session.total_questions}</span>
+                      <span>{t('series')}: {session.series || '—'}</span>
+                      <span>{t('position')}: {session.position || '—'}</span>
+                      <span>{t('total_questions')}: {session.total_questions}</span>
                     </div>
                     
                     <div className={styles.questionsList}>
@@ -180,20 +191,38 @@ export default function HistoryPage() {
                         const maxScore = q?.score || 0;
                         const achievedQScore = answer?.score || 0;
                         const isCorrect = achievedQScore === maxScore && maxScore > 0;
+                        const questionImages = getQuestionImages(q);
                         
                         return (
                           <div key={q.id} className={styles.questionItem}>
                             <div className={styles.questionHeader}>
-                              <span className={styles.questionNumber}>Câu {qIdx + 1}</span>
+                              <span className={styles.questionNumber}>{t('question')} {qIdx + 1}</span>
                               <span className={`${styles.questionScore} ${isCorrect ? styles.fullScore : ''}`}>
-                                {isGraded ? `${achievedQScore}/${maxScore}` : `${maxScore} điểm`}
+                                {isGraded ? `${achievedQScore}/${maxScore}` : `${maxScore} ${t('points')}`}
                               </span>
                             </div>
-                            <div className={styles.questionText}>{q.question}</div>
+                            
+                            {/* Hiển thị 3 ảnh câu hỏi */}
+                            {questionImages.length > 0 && (
+                              <div className={styles.questionImagesHistory}>
+                                {questionImages.map((url, imgIdx) => (
+                                  <img 
+                                    key={imgIdx}
+                                    src={url} 
+                                    alt={`Câu hỏi ảnh ${imgIdx + 1}`} 
+                                    className={styles.questionImgHistory}
+                                    onClick={() => setLightboxImage(url)}
+                                    style={{ cursor: 'pointer' }}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            
+                            <div className={styles.questionText}>{getQuestionByLanguage(q)}</div>
                             <div className={styles.answerSection}>
-                              <div className={styles.answerLabel}>Câu trả lời của bạn:</div>
+                              <div className={styles.answerLabel}>{t('your_answer_history')}</div>
                               <div className={styles.answerText}>
-                                {answer?.user_answer || 'Chưa có câu trả lời'}
+                                {answer?.user_answer || t('no_answer')}
                               </div>
                               {answer?.image_urls && answer.image_urls.length > 0 && (
                                 <div className={styles.answerImages}>
@@ -211,12 +240,12 @@ export default function HistoryPage() {
                               )}
                               {isGraded && (
                                 <div className={`${styles.gradeResult} ${isCorrect ? styles.correct : styles.wrong}`}>
-                                  {isCorrect ? '✓ Đúng' : '✗ Sai'}
+                                  {isCorrect ? `✓ ${t('correct')}` : `✗ ${t('wrong')}`}
                                 </div>
                               )}
                               {answer?.feedback && (
                                 <div className={styles.feedbackSection}>
-                                  <div className={styles.feedbackLabel}>📝 Nhận xét của giám khảo:</div>
+                                  <div className={styles.feedbackLabel}>📝 {t('feedback_from_examiner')}</div>
                                   <div className={styles.feedbackText}>{answer.feedback}</div>
                                   {answer.feedback_images && answer.feedback_images.length > 0 && (
                                     <div className={styles.feedbackImages}>
