@@ -10,7 +10,7 @@ const SYNC_URL = '/.netlify/functions/sync-questions';
 
 export default function AdminPage() {
   const router = useRouter();
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   const [sessions, setSessions] = useState([]);
   const [submittedSessions, setSubmittedSessions] = useState([]);
   const [total, setTotal] = useState(0);
@@ -38,12 +38,25 @@ export default function AdminPage() {
   const [uploadingFeedback, setUploadingFeedback] = useState(false);
   const [activeSubmissionId, setActiveSubmissionId] = useState(null);
 
-  // Hàm lấy câu hỏi theo ngôn ngữ
-  const getQuestionByLanguage = (q) => {
+  // Hàm hiển thị câu hỏi với cả 3 ngôn ngữ (cho admin)
+  const getQuestionDisplay = (q) => {
     if (!q) return 'Câu hỏi không tồn tại';
-    if (language === 'en') return q.question_en || q.question;
-    if (language === 'zh') return q.question_zh || q.question;
-    return q.question_vi || q.question;
+    return (
+      <div className={styles.questionLanguages}>
+        <div className={styles.langItem}>
+          <span className={styles.langLabel}>🇬🇧 English:</span>
+          <span>{q.question_en || 'Không có'}</span>
+        </div>
+        <div className={styles.langItem}>
+          <span className={styles.langLabel}>🇨🇳 中文:</span>
+          <span>{q.question_zh || '没有'}</span>
+        </div>
+        <div className={styles.langItem}>
+          <span className={styles.langLabel}>🇻🇳 Tiếng Việt:</span>
+          <span>{q.question_vi || 'Không có'}</span>
+        </div>
+      </div>
+    );
   };
 
   // Hàm format thời gian theo ngôn ngữ
@@ -58,11 +71,10 @@ export default function AdminPage() {
     }
   };
 
-  // Hàm tính xếp hạng thí sinh (sửa lỗi relationship)
+  // Hàm tính xếp hạng thí sinh
   const calculateRanking = async () => {
     setRankingLoading(true);
     try {
-      // Lấy tất cả session (không join)
       let query = supabase
         .from('exam_sessions')
         .select('*')
@@ -81,7 +93,6 @@ export default function AdminPage() {
         return;
       }
       
-      // Lấy thông tin profiles riêng
       const userIds = [...new Set(sessions.map(s => s.user_id).filter(Boolean))];
       let profileMap = {};
       
@@ -96,7 +107,6 @@ export default function AdminPage() {
         }
       }
       
-      // Nhóm theo user_id và tính điểm trung bình
       const userStats = new Map();
       sessions.forEach(s => {
         const userId = s.user_id;
@@ -121,7 +131,6 @@ export default function AdminPage() {
         stats.scores.push(score);
       });
       
-      // Tính điểm trung bình và sắp xếp
       const ranking = Array.from(userStats.values())
         .filter(user => user.examCount > 0)
         .map(user => ({
@@ -427,8 +436,11 @@ export default function AdminPage() {
             return (
               <div key={sub.id} className={styles.subCard}>
                 <div className={styles.subHeader}>
-                  <strong>{t('question')} {idx+1}:</strong> {getQuestionByLanguage(q)}
+                  <strong>{t('question')} {idx+1}:</strong>
                 </div>
+                
+                {/* Hiển thị câu hỏi với 3 ngôn ngữ */}
+                {getQuestionDisplay(q)}
                 
                 {/* Hiển thị 3 ảnh câu hỏi */}
                 {questionImages.length > 0 && (
@@ -795,7 +807,7 @@ export default function AdminPage() {
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
-                  <tr>
+                  <td>
                     <th>{t('student')}</th>
                     <th>{t('series')}</th>
                     <th>{t('position')}</th>
