@@ -24,7 +24,7 @@ export default function ExamPage() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(false);
   const imagesCache = useRef({});
-  const [lightboxImage, setLightboxImage] = useState(null); // Thêm state cho lightbox
+  const [lightboxImage, setLightboxImage] = useState(null);
 
   // State cho màn hình chọn series/position
   const [seriesList, setSeriesList] = useState([]);
@@ -126,18 +126,15 @@ export default function ExamPage() {
   const debounceTimer = useRef(null);
 
   const handleAnswer = useCallback((questionId, text) => {
-    // Cập nhật state ngay lập tức (không chờ)
     setAnswers(prev => ({
       ...prev,
       [questionId]: { text, images: prev[questionId]?.images || [] }
     }));
     
-    // Clear timer cũ nếu có
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
     
-    // Set timer mới, sau 800ms mới lưu vào database
     debounceTimer.current = setTimeout(async () => {
       console.log('💾 Saving to database after debounce...');
       try {
@@ -248,6 +245,9 @@ export default function ExamPage() {
     if (difficulty === 'hard') return t('hard');
     return difficulty;
   };
+
+  // Lấy danh sách ảnh câu hỏi (tối đa 3 ảnh)
+  const questionImages = [q?.image_1, q?.image_2, q?.image_3].filter(url => url && url.trim());
 
   if (phase === 'loading') {
     return (
@@ -392,16 +392,20 @@ export default function ExamPage() {
                 <span className={styles.qScore}>🎯 {q.score} {t('points')}</span>
               </div>
               
-              {/* Hiển thị ảnh câu hỏi - bấm vào để xem to */}
-              {q.image_url && (
-                <div className={styles.questionImage}>
-                  <img 
-                    src={q.image_url} 
-                    alt="Câu hỏi hình ảnh" 
-                    className={styles.questionImg} 
-                    onClick={() => setLightboxImage(q.image_url)}
-                    style={{ cursor: 'pointer' }}
-                  />
+              {/* Hiển thị 3 ảnh câu hỏi dạng grid */}
+              {questionImages.length > 0 && (
+                <div className={styles.questionImagesGrid}>
+                  {questionImages.map((url, idx) => (
+                    <div key={idx} className={styles.questionImageItem}>
+                      <img 
+                        src={url} 
+                        alt={`Câu hỏi hình ảnh ${idx + 1}`} 
+                        className={styles.questionImg} 
+                        onClick={() => setLightboxImage(url)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
               
