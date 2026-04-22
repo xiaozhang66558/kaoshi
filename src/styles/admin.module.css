@@ -1107,4 +1107,10 @@
   object-fit: cover;
   border-radius: 0.5rem;
   border: 1px solid #e2e8f0;
-  cursor: pointer
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.questionImgAdmin:hover {
+  transform: scale(1.05);
+}
