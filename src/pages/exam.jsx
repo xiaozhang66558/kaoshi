@@ -390,6 +390,14 @@ export default function ExamPage() {
                 </span>
                 <span className={styles.qScore}>🎯 {q.score} {t('points')}</span>
               </div>
+              
+              {/* Hiển thị ảnh câu hỏi nếu có */}
+              {q.image_url && (
+                <div className={styles.questionImage}>
+                  <img src={q.image_url} alt="Câu hỏi hình ảnh" className={styles.questionImg} />
+                </div>
+              )}
+              
               <div className={styles.questionText}>
                 <p>{getQuestionByLanguage(q)}</p>
               </div>
