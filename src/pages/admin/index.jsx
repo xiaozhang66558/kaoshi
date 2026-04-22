@@ -422,6 +422,7 @@ export default function AdminPage() {
             const q = sub.questions_cache;
             const isCorrectGraded = sub.score === (q?.score || 0);
             const isWrongGraded = sub.score === 0 && sub.graded_at;
+            const questionImages = [q?.image_1, q?.image_2, q?.image_3].filter(url => url && url.trim());
             
             return (
               <div key={sub.id} className={styles.subCard}>
@@ -429,18 +430,22 @@ export default function AdminPage() {
                   <strong>{t('question')} {idx+1}:</strong> {getQuestionByLanguage(q)}
                 </div>
                 
-                {/* Hiển thị ảnh câu hỏi nếu có */}
-                {q?.image_url && (
-                  <div className={styles.questionImageAdmin}>
-                    <img 
-                      src={q.image_url} 
-                      alt="Câu hỏi hình ảnh" 
-                      className={styles.questionImgAdmin}
-                      onClick={() => setLightboxImage(q.image_url)}
-                      style={{ cursor: 'pointer' }}
-                    />
+                {/* Hiển thị 3 ảnh câu hỏi */}
+                {questionImages.length > 0 && (
+                  <div className={styles.questionImagesAdmin}>
+                    {questionImages.map((url, imgIdx) => (
+                      <img 
+                        key={imgIdx}
+                        src={url} 
+                        alt={`Câu hỏi ảnh ${imgIdx + 1}`} 
+                        className={styles.questionImgAdmin}
+                        onClick={() => setLightboxImage(url)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    ))}
                   </div>
                 )}
+                
                 <div className={styles.subAnswer}>
                   <strong>{t('student_answer')}</strong>
                   <p className={styles.answerText}>{sub.user_answer || t('no_answer')}</p>
