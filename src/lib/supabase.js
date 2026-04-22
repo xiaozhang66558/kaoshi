@@ -211,7 +211,7 @@ export async function getSessionWithQuestions(sessionId) {
   
   const { data: questions, error: qErr } = await supabase
     .from('questions_cache')
-    .select('id, question_en, question_zh, question_vi, image_url, option_a, option_b, option_c, option_d, topic, difficulty, score, series, position')
+    .select('id, question_en, question_zh, question_vi, image_1, image_2, image_3, option_a, option_b, option_c, option_d, topic, difficulty, score, series, position')
     .in('id', session.question_ids);
   if (qErr) throw qErr;
   
