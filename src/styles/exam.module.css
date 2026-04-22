@@ -814,3 +814,34 @@
 .lightboxClose:hover {
   color: #ef4444;
 }
+/* Grid hiển thị 3 ảnh câu hỏi */
+.questionImagesGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  justify-content: center;
+}
+
+.questionImageItem {
+  flex: 1;
+  min-width: 100px;
+  max-width: 180px;
+  background: #f8fafc;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  text-align: center;
+}
+
+.questionImg {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.questionImg:hover {
+  transform: scale(1.02);
+}
