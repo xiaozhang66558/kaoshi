@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Đọc từ cột A đến H (series, position, question_en, question_zh, question_vi, score, difficulty, image_url)
-const SHEET_RANGE = 'Sheet1!A2:H1000';
+// Đọc từ cột A đến J (series, position, question_en, question_zh, question_vi, score, difficulty, image_1, image_2, image_3)
+const SHEET_RANGE = 'Sheet1!A2:J1000';
 
 exports.handler = async (event) => {
   const headers = {
@@ -46,7 +46,9 @@ exports.handler = async (event) => {
           question_vi:  String(row[4] || '').trim(),
           score:        parseInt(row[5]) || 10,
           difficulty:   difficulty,
-          image_url:    String(row[7] || '').trim(), // Cột H: đường dẫn ảnh
+          image_1:      String(row[7] || '').trim(), // Cột H: ảnh thứ 1
+          image_2:      String(row[8] || '').trim(), // Cột I: ảnh thứ 2
+          image_3:      String(row[9] || '').trim(), // Cột J: ảnh thứ 3
           is_active:    true,
           synced_at:    new Date().toISOString(),
           option_a: '', option_b: '', option_c: '', option_d: '',
@@ -77,7 +79,7 @@ exports.handler = async (event) => {
     
     if (upsertError) throw upsertError;
 
-    console.log(`[sync-questions] Đã đồng bộ ${questions.length} câu hỏi với 3 ngôn ngữ và ảnh`);
+    console.log(`[sync-questions] Đã đồng bộ ${questions.length} câu hỏi với 3 ngôn ngữ và 3 ảnh`);
 
     return {
       statusCode: 200,
