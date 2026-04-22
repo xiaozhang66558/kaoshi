@@ -24,6 +24,7 @@ export default function ExamPage() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(false);
   const imagesCache = useRef({});
+  const [lightboxImage, setLightboxImage] = useState(null); // Thêm state cho lightbox
 
   // State cho màn hình chọn series/position
   const [seriesList, setSeriesList] = useState([]);
@@ -391,10 +392,16 @@ export default function ExamPage() {
                 <span className={styles.qScore}>🎯 {q.score} {t('points')}</span>
               </div>
               
-              {/* Hiển thị ảnh câu hỏi nếu có */}
+              {/* Hiển thị ảnh câu hỏi - bấm vào để xem to */}
               {q.image_url && (
                 <div className={styles.questionImage}>
-                  <img src={q.image_url} alt="Câu hỏi hình ảnh" className={styles.questionImg} />
+                  <img 
+                    src={q.image_url} 
+                    alt="Câu hỏi hình ảnh" 
+                    className={styles.questionImg} 
+                    onClick={() => setLightboxImage(q.image_url)}
+                    style={{ cursor: 'pointer' }}
+                  />
                 </div>
               )}
               
@@ -507,6 +514,7 @@ export default function ExamPage() {
         </div>
       </div>
 
+      {/* Modal xác nhận nộp bài */}
       <Modal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
@@ -516,6 +524,16 @@ export default function ExamPage() {
         confirmText={t('submit_exam')}
         cancelText={t('cancel')}
       />
+
+      {/* Lightbox xem ảnh to */}
+      {lightboxImage && (
+        <div className={styles.lightbox} onClick={() => setLightboxImage(null)}>
+          <div className={styles.lightboxContent}>
+            <span className={styles.lightboxClose} onClick={() => setLightboxImage(null)}>&times;</span>
+            <img className={styles.lightboxImage} src={lightboxImage} alt="Ảnh to" />
+          </div>
+        </div>
+      )}
     </>
   );
 }
