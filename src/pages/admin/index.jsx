@@ -428,6 +428,19 @@ export default function AdminPage() {
                 <div className={styles.subHeader}>
                   <strong>{t('question')} {idx+1}:</strong> {getQuestionByLanguage(q)}
                 </div>
+                
+                {/* Hiển thị ảnh câu hỏi nếu có */}
+                {q?.image_url && (
+                  <div className={styles.questionImageAdmin}>
+                    <img 
+                      src={q.image_url} 
+                      alt="Câu hỏi hình ảnh" 
+                      className={styles.questionImgAdmin}
+                      onClick={() => setLightboxImage(q.image_url)}
+                      style={{ cursor: 'pointer' }}
+                    />
+                  </div>
+                )}
                 <div className={styles.subAnswer}>
                   <strong>{t('student_answer')}</strong>
                   <p className={styles.answerText}>{sub.user_answer || t('no_answer')}</p>
