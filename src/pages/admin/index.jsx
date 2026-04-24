@@ -311,16 +311,23 @@ export default function AdminPage() {
     }
   };
 
-  async function handleGrade(submissionId, isCorrect) {
+  async function handleGrade(submissionId, isFullCorrect, isHalfCorrect) {
     const submission = detail.submissions.find(s => s.id === submissionId);
     const maxScore = submission?.questions_cache?.score || 0;
-    const scoreToSet = isCorrect ? maxScore : 0;
+    let scoreToSet = 0;
+    
+    if (isFullCorrect) {
+      scoreToSet = maxScore;
+    } else if (isHalfCorrect) {
+      scoreToSet = Math.round(maxScore / 2);
+    } else {
+      scoreToSet = 0;
+    }
     
     await gradeSubmission(submissionId, scoreToSet);
     const updated = await getSessionDetail(detail.session.id);
     setDetail(updated);
   }
-
   async function syncQuestions() {
     setSyncing(true);
     try {
