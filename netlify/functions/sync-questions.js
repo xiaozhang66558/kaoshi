@@ -1,6 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Đọc từ cột A đến J (series, position, question_en, question_zh, question_vi, score, difficulty, image_1, image_2, image_3)
 const SHEET_RANGE = 'Sheet1!A2:J1000';
 
 exports.handler = async (event) => {
@@ -30,7 +29,6 @@ exports.handler = async (event) => {
 
     const questions = rows
       .filter(row => {
-        // Kiểm tra có ít nhất một ngôn ngữ có dữ liệu
         const hasEn = row[2] && row[2].trim();
         const hasZh = row[3] && row[3].trim();
         const hasVi = row[4] && row[4].trim();
@@ -44,7 +42,8 @@ exports.handler = async (event) => {
         else if (diffValue === '3') difficulty = 'hard';
         
         return {
-          sheet_row_id: `row_${idx + 1}`,
+          // KHÔNG dùng sheet_row_id cố định, tạo ID mới mỗi lần sync
+          sheet_row_id: `${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
           series:       String(row[0] || '').trim(),
           position:     String(row[1] || '').trim(),
           question_en:  String(row[2] || '').trim(),
@@ -70,7 +69,7 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // 1. Cập nhật is_active = false cho tất cả câu hỏi hiện tại
+    // 1. Vô hiệu hóa tất cả câu hỏi hiện tại (không xóa)
     const { error: updateError } = await supabase
       .from('questions_cache')
       .update({ is_active: false })
@@ -78,14 +77,14 @@ exports.handler = async (event) => {
     
     if (updateError) throw updateError;
 
-    // 2. Insert câu hỏi mới (nếu sheet_row_id đã tồn tại thì update)
-    const { error: upsertError } = await supabase
+    // 2. Thêm câu hỏi mới (KHÔNG update, chỉ insert)
+    const { error: insertError } = await supabase
       .from('questions_cache')
-      .upsert(questions, { onConflict: 'sheet_row_id' });
+      .insert(questions);
     
-    if (upsertError) throw upsertError;
+    if (insertError) throw insertError;
 
-    console.log(`[sync-questions] Đã đồng bộ ${questions.length} câu hỏi với 3 ngôn ngữ và 3 ảnh`);
+    console.log(`[sync-questions] Đã thêm mới ${questions.length} câu hỏi (các câu hỏi cũ đã được vô hiệu hóa)`);
 
     return {
       statusCode: 200,
@@ -93,7 +92,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ 
         message: 'Sync thành công', 
         synced: questions.length,
-        languages: ['en', 'zh', 'vi']
+        note: 'Các câu hỏi cũ đã được vô hiệu hóa, bài thi cũ vẫn giữ nguyên nội dung'
       }),
     };
   } catch (err) {
