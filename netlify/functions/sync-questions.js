@@ -29,7 +29,13 @@ exports.handler = async (event) => {
     const rows = sheetsData.values || [];
 
     const questions = rows
-      .filter(row => row.length >= 4 && row[2]) // cần có câu hỏi tiếng Anh
+      .filter(row => {
+        // Kiểm tra có ít nhất một ngôn ngữ có dữ liệu
+        const hasEn = row[2] && row[2].trim();
+        const hasZh = row[3] && row[3].trim();
+        const hasVi = row[4] && row[4].trim();
+        return (hasEn || hasZh || hasVi);
+      })
       .map((row, idx) => {
         const diffValue = String(row[6] || '1').trim();
         let difficulty = 'medium';
@@ -46,9 +52,9 @@ exports.handler = async (event) => {
           question_vi:  String(row[4] || '').trim(),
           score:        parseInt(row[5]) || 10,
           difficulty:   difficulty,
-          image_1:      String(row[7] || '').trim(), // Cột H: ảnh thứ 1
-          image_2:      String(row[8] || '').trim(), // Cột I: ảnh thứ 2
-          image_3:      String(row[9] || '').trim(), // Cột J: ảnh thứ 3
+          image_1:      String(row[7] || '').trim(),
+          image_2:      String(row[8] || '').trim(),
+          image_3:      String(row[9] || '').trim(),
           is_active:    true,
           synced_at:    new Date().toISOString(),
           option_a: '', option_b: '', option_c: '', option_d: '',
