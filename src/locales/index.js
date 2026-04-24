@@ -73,6 +73,7 @@ const locales = {
     point: 'Điểm',
     correct: '✓ Đúng',
     wrong: '✗ Sai',
+    half_correct: 'đúng 1 nữa',
         
     // Exam Page - Select
     select_questions: 'Chọn bộ câu hỏi',
@@ -223,6 +224,7 @@ const locales = {
     point: '分',
     correct: '✓ 正确',
     wrong: '✗ 错误',
+    half_correct: '半对',
     
     // Exam Page - Select
     select_questions: '选择试题',
@@ -373,6 +375,7 @@ const locales = {
     point: 'point(s)',
     correct: '✓ Correct',
     wrong: '✗ Wrong',
+    half_correct: 'Half',
     
     // Exam Page - Select
     select_questions: 'Select Question Set',
