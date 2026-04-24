@@ -1114,3 +1114,12 @@
 .questionImgAdmin:hover {
   transform: scale(1.05);
 }
+.halfActive {
+  background: #f59e0b !important;
+  color: white !important;
+}
+
+.gradeBtn:nth-child(2):hover {
+  background: #f59e0b;
+  color: white;
+}
