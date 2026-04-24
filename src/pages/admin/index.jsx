@@ -484,14 +484,20 @@ export default function AdminPage() {
                 <div className={styles.grading}>
                   <div className={styles.gradingButtons}>
                     <button 
-                      className={`${styles.gradeBtn} ${isCorrectGraded ? styles.correctActive : ''}`}
-                      onClick={() => handleGrade(sub.id, true)}
+                      className={`${styles.gradeBtn} ${sub.score === (q?.score || 0) ? styles.correctActive : ''}`}
+                      onClick={() => handleGrade(sub.id, true, false)}
                     >
                       ✓ {t('correct')}
                     </button>
                     <button 
-                      className={`${styles.gradeBtn} ${isWrongGraded ? styles.wrongActive : ''}`}
-                      onClick={() => handleGrade(sub.id, false)}
+                      className={`${styles.gradeBtn} ${sub.score > 0 && sub.score < (q?.score || 0) ? styles.halfActive : ''}`}
+                      onClick={() => handleGrade(sub.id, false, true)}
+                    >
+                      ½ {t('half_correct') || '半对'}
+                    </button>
+                    <button 
+                      className={`${styles.gradeBtn} ${sub.score === 0 && sub.graded_at ? styles.wrongActive : ''}`}
+                      onClick={() => handleGrade(sub.id, false, false)}
                     >
                       ✗ {t('wrong')}
                     </button>
