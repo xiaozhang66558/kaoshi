@@ -72,20 +72,19 @@ export default function HistoryPage() {
         let questions = [];
         
         if (questionIds.length > 0) {
-          // Thử lấy từ questions_cache trước
-          let { data: qData } = await supabase
+          // Chỉ lấy từ questions_cache
+          const { data: qData } = await supabase
             .from('questions_cache')
             .select('*')
             .in('id', questionIds);
           
-          // Nếu không có trong cache, lấy từ bảng questions
-          if (!qData || qData.length === 0) {
-            const { data: qDataFromQuestions } = await supabase
-              .from('questions')
-              .select('*')
-              .in('id', questionIds);
-            qData = qDataFromQuestions;
+          if (qData && qData.length > 0) {
+            // Sắp xếp câu hỏi theo đúng thứ tự
+            questions = questionIds
+              .map(id => qData.find(q => q.id === id))
+              .filter(q => q !== undefined);
           }
+        }
           
           if (qData && qData.length > 0) {
             // Sắp xếp câu hỏi theo đúng thứ tự
