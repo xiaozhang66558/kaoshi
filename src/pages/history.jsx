@@ -44,7 +44,7 @@ export default function HistoryPage() {
       // Lấy tất cả session của thí sinh
       const { data: sessions, error } = await supabase
         .from('exam_sessions')
-        .select('*, profiles!exam_sessions_user_id_fkey(full_name, email, username)')
+        .select('*')
         .eq('user_id', userId)
         .neq('status', 'in_progress')
         .order('submitted_at', { ascending: false });
