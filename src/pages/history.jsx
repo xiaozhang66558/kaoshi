@@ -85,14 +85,6 @@ export default function HistoryPage() {
               .filter(q => q !== undefined);
           }
         }
-          
-          if (qData && qData.length > 0) {
-            // Sắp xếp câu hỏi theo đúng thứ tự
-            questions = questionIds
-              .map(id => qData.find(q => q.id === id))
-              .filter(q => q !== undefined);
-          }
-        }
         
         // Tạo map answers theo question_id
         const answersMap = {};
