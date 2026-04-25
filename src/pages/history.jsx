@@ -58,51 +58,58 @@ export default function HistoryPage() {
       }
       
       // Lấy submissions và questions cho từng session
-      const sessionsWithDetails = await Promise.all(
-        sessions.map(async (session) => {
-          // Lấy submissions
-          const { data: submissions } = await supabase
-            .from('submissions')
+      const sessionsWithDetails = [];
+      
+      for (const session of sessions) {
+        // Lấy submissions
+        const { data: submissions } = await supabase
+          .from('submissions')
+          .select('*')
+          .eq('session_id', session.id);
+        
+        // Lấy questions_cache cho các question_id
+        const questionIds = session.question_ids || [];
+        let questions = [];
+        
+        if (questionIds.length > 0) {
+          // Thử lấy từ questions_cache trước
+          let { data: qData } = await supabase
+            .from('questions_cache')
             .select('*')
-            .eq('session_id', session.id);
+            .in('id', questionIds);
           
-          // Lấy questions_cache cho các question_id
-          const questionIds = session.question_ids || [];
-          let questions = [];
-          if (questionIds.length > 0) {
-            // Cũ: lấy từ questions_cache
-            const { data: qData } = await supabase
-              .from('questions_cache')
+          // Nếu không có trong cache, lấy từ bảng questions
+          if (!qData || qData.length === 0) {
+            const { data: qDataFromQuestions } = await supabase
+              .from('questions')
               .select('*')
               .in('id', questionIds);
-            
-            // Mới: lấy từ bảng questions (hoặc bảng chứa câu hỏi thật)
-            const { data: qData } = await supabase
-              .from('questions')  // thay bằng tên bảng thật của bạn
-              .select('*')
-              .in('id', questionIds);
-          
-          // Tạo map answers theo question_id
-          const answersMap = {};
-          if (submissions) {
-            submissions.forEach(sub => {
-              answersMap[sub.question_id] = sub;
-            });
+            qData = qDataFromQuestions;
           }
           
-          // Sắp xếp câu hỏi theo đúng thứ tự
-          const orderedQuestions = questionIds
-            .map(id => questions.find(q => q.id === id))
-            .filter(Boolean);
-          
-          return {
-            ...session,
-            questions: orderedQuestions,
-            answers: answersMap,
-            submissions: submissions || []
-          };
-        })
-      );
+          if (qData && qData.length > 0) {
+            // Sắp xếp câu hỏi theo đúng thứ tự
+            questions = questionIds
+              .map(id => qData.find(q => q.id === id))
+              .filter(q => q !== undefined);
+          }
+        }
+        
+        // Tạo map answers theo question_id
+        const answersMap = {};
+        if (submissions) {
+          submissions.forEach(sub => {
+            answersMap[sub.question_id] = sub;
+          });
+        }
+        
+        sessionsWithDetails.push({
+          ...session,
+          questions: questions,
+          answers: answersMap,
+          submissions: submissions || []
+        });
+      }
       
       setSessions(sessionsWithDetails);
     } catch (err) {
@@ -162,7 +169,7 @@ export default function HistoryPage() {
 
       <div className={styles.historyList}>
         {sessions.map((session, idx) => {
-          const totalScore = session.questions?.reduce((sum, q) => sum + (q?.score || 0), 0) || 0;
+          const totalScore = session.questions?.reduce((sum, q) => sum + (q?.score || 0), 0) || session.total_questions * 10 || 0;
           const achievedScore = session.score || 0;
           const isGraded = session.status === 'graded';
           
@@ -171,7 +178,7 @@ export default function HistoryPage() {
               <div className={styles.cardHeader} onClick={() => toggleSessionDetail(session.id)}>
                 <div className={styles.cardInfo}>
                   <span className={styles.cardNumber}>{t('exam_no')} #{idx + 1}</span>
-                  <span className={styles.cardDate}>{new Date(session.submitted_at).toLocaleString()}</span>
+                  <span className={styles.cardDate}>{session.submitted_at ? new Date(session.submitted_at).toLocaleString() : new Date(session.started_at).toLocaleString()}</span>
                 </div>
                 <div className={styles.cardStats}>
                   <span className={`${styles.score} ${isGraded ? styles.graded : styles.pending}`}>
@@ -186,7 +193,7 @@ export default function HistoryPage() {
                   <div className={styles.detailHeader}>
                     <span>{t('series')}: {session.series || '—'}</span>
                     <span>{t('position')}: {session.position || '—'}</span>
-                    <span>{t('total_questions')}: {session.total_questions}</span>
+                    <span>{t('total_questions')}: {session.total_questions || session.questions?.length || 0}</span>
                   </div>
                   
                   {session.questions && session.questions.length > 0 ? (
