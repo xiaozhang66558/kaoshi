@@ -70,12 +70,17 @@ export default function HistoryPage() {
           const questionIds = session.question_ids || [];
           let questions = [];
           if (questionIds.length > 0) {
+            // Cũ: lấy từ questions_cache
             const { data: qData } = await supabase
               .from('questions_cache')
               .select('*')
               .in('id', questionIds);
-            if (qData) questions = qData;
-          }
+            
+            // Mới: lấy từ bảng questions (hoặc bảng chứa câu hỏi thật)
+            const { data: qData } = await supabase
+              .from('questions')  // thay bằng tên bảng thật của bạn
+              .select('*')
+              .in('id', questionIds);
           
           // Tạo map answers theo question_id
           const answersMap = {};
