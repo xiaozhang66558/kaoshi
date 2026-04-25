@@ -12,15 +12,13 @@ export default function HistoryPage() {
   const [selectedSession, setSelectedSession] = useState(null);
   const [lightboxImage, setLightboxImage] = useState(null);
 
-  // Hàm lấy câu hỏi theo ngôn ngữ
   const getQuestionByLanguage = (q) => {
     if (!q) return '⚠️ Câu hỏi không tồn tại';
-    if (language === 'en') return q.question_en || q.question || 'No English content';
-    if (language === 'zh') return q.question_zh || q.question || '没有中文内容';
-    return q.question_vi || q.question || 'Không có nội dung';
+    if (language === 'en') return q.question_en || q.question;
+    if (language === 'zh') return q.question_zh || q.question;
+    return q.question_vi || q.question;
   };
 
-  // Hàm lấy danh sách ảnh câu hỏi
   const getQuestionImages = (q) => {
     return [q?.image_1, q?.image_2, q?.image_3].filter(url => url && url.trim());
   };
@@ -43,16 +41,15 @@ export default function HistoryPage() {
   async function loadHistory(userId) {
     setLoading(true);
     try {
+      // Lấy tất cả session của thí sinh
       const { data: sessions, error } = await supabase
         .from('exam_sessions')
-        .select('*')
+        .select('*, profiles!exam_sessions_user_id_fkey(full_name, email, username)')
         .eq('user_id', userId)
         .neq('status', 'in_progress')
         .order('submitted_at', { ascending: false });
       
       if (error) throw error;
-      
-      console.log('Sessions found:', sessions?.length);
       
       if (!sessions || sessions.length === 0) {
         setSessions([]);
@@ -60,57 +57,51 @@ export default function HistoryPage() {
         return;
       }
       
+      // Lấy submissions và questions cho từng session
       const sessionsWithDetails = await Promise.all(
         sessions.map(async (session) => {
-          let orderedQuestions = [];
-          let answersMap = {};
+          // Lấy submissions
+          const { data: submissions } = await supabase
+            .from('submissions')
+            .select('*')
+            .eq('session_id', session.id);
           
-          // Lấy câu hỏi
-          try {
-            const { data: questions, error: qErr } = await supabase
+          // Lấy questions_cache cho các question_id
+          const questionIds = session.question_ids || [];
+          let questions = [];
+          if (questionIds.length > 0) {
+            const { data: qData } = await supabase
               .from('questions_cache')
               .select('*')
-              .in('id', session.question_ids || []);
-            
-            if (!qErr && questions && questions.length > 0) {
-              orderedQuestions = session.question_ids
-                .map(id => questions.find(q => q.id === id))
-                .filter(Boolean);
-            }
-          } catch (err) {
-            console.error(`Lỗi lấy câu hỏi:`, err);
+              .in('id', questionIds);
+            if (qData) questions = qData;
           }
           
-          // Lấy câu trả lời
-          try {
-            const { data: submissions, error: subErr } = await supabase
-              .from('submissions')
-              .select('*')
-              .eq('session_id', session.id);
-            
-            if (!subErr && submissions) {
-              submissions.forEach(sub => {
-                answersMap[sub.question_id] = sub;
-              });
-            }
-          } catch (err) {
-            console.error(`Lỗi lấy submissions:`, err);
+          // Tạo map answers theo question_id
+          const answersMap = {};
+          if (submissions) {
+            submissions.forEach(sub => {
+              answersMap[sub.question_id] = sub;
+            });
           }
+          
+          // Sắp xếp câu hỏi theo đúng thứ tự
+          const orderedQuestions = questionIds
+            .map(id => questions.find(q => q.id === id))
+            .filter(Boolean);
           
           return {
             ...session,
             questions: orderedQuestions,
             answers: answersMap,
-            submissions: []
+            submissions: submissions || []
           };
         })
       );
       
-      console.log('Processed sessions:', sessionsWithDetails.length);
       setSessions(sessionsWithDetails);
     } catch (err) {
       console.error('Lỗi tải lịch sử:', err);
-      alert('Không thể tải lịch sử bài thi');
     } finally {
       setLoading(false);
     }
@@ -193,9 +184,9 @@ export default function HistoryPage() {
                     <span>{t('total_questions')}: {session.total_questions}</span>
                   </div>
                   
-                  <div className={styles.questionsList}>
-                    {session.questions && session.questions.length > 0 ? (
-                      session.questions.map((q, qIdx) => {
+                  {session.questions && session.questions.length > 0 ? (
+                    <div className={styles.questionsList}>
+                      {session.questions.map((q, qIdx) => {
                         const answer = session.answers[q.id];
                         const maxScore = q?.score || 0;
                         const achievedQScore = answer?.score || 0;
@@ -214,7 +205,7 @@ export default function HistoryPage() {
                             {questionImages.length > 0 && (
                               <div className={styles.questionImagesHistory}>
                                 {questionImages.map((url, imgIdx) => (
-                                  <img key={imgIdx} src={url} alt={`Câu hỏi ảnh ${imgIdx + 1}`} className={styles.questionImgHistory} onClick={() => setLightboxImage(url)} style={{ cursor: 'pointer' }} />
+                                  <img key={imgIdx} src={url} alt={`img${imgIdx+1}`} className={styles.questionImgHistory} onClick={() => setLightboxImage(url)} style={{ cursor: 'pointer' }} />
                                 ))}
                               </div>
                             )}
@@ -255,13 +246,14 @@ export default function HistoryPage() {
                             </div>
                           </div>
                         );
-                      })
-                    ) : (
-                      <div className={styles.noQuestions}>
-                        <p>⚠️ Không thể tải câu hỏi cho bài thi này</p>
-                      </div>
-                    )}
-                  </div>
+                      })}
+                    </div>
+                  ) : (
+                    <div className={styles.noQuestions}>
+                      <p>⚠️ Không thể tải câu hỏi</p>
+                      <p className={styles.note}>Điểm của bạn: {achievedScore}/{totalScore}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -269,6 +261,7 @@ export default function HistoryPage() {
         })}
       </div>
 
+      {/* Lightbox */}
       {lightboxImage && (
         <div className={styles.lightbox} onClick={() => setLightboxImage(null)}>
           <div className={styles.lightboxContent}>
