@@ -1,6 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const SHEET_RANGE = 'Sheet1!A2:J1000';
+const SHEET_RANGE = 'Sheet1!A2:J10000';
 
 exports.handler = async (event) => {
   const headers = {
