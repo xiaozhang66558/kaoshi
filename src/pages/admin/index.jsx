@@ -156,19 +156,25 @@ export default function AdminPage() {
 
   async function loadFilterOptions() {
     try {
+      // Lấy series - tăng limit lên 50000
       const { data: seriesData } = await supabase
         .from('questions_cache')
         .select('series')
         .eq('is_active', true)
-        .not('series', 'is', null);
+        .not('series', 'is', null)
+        .limit(50000);  // ✅ THÊM DÒNG NÀY
+      
       const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
       setSeriesOptions(uniqueSeries);
   
+      // Lấy position - tăng limit lên 50000
       const { data: positionData } = await supabase
         .from('questions_cache')
         .select('position')
         .eq('is_active', true)
-        .not('position', 'is', null);
+        .not('position', 'is', null)
+        .limit(50000);  // ✅ THÊM DÒNG NÀY
+      
       const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
       setPositionOptions(uniquePositions);
     } catch (err) {
