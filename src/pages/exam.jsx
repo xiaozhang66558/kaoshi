@@ -60,31 +60,23 @@ export default function ExamPage() {
   async function loadFilterOptions() {
     setLoadingOptions(true);
     try {
-      // Lấy series - tăng limit lên 50000
+      // Gọi RPC function để lấy series (không bị giới hạn 1000)
       const { data: seriesData, error: seriesError } = await supabase
-        .from('questions_cache')
-        .select('series')
-        .eq('is_active', true)
-        .not('series', 'is', null)
-        .range(0, 49999);  // ✅ Dùng range thay vì limit
+        .rpc('get_distinct_series');
       
       if (seriesError) throw seriesError;
       
-      const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
+      const uniqueSeries = seriesData.map(item => item.series).filter(Boolean);
       console.log(`📋 Đã load ${uniqueSeries.length} series`);
       setSeriesList(uniqueSeries);
   
-      // Lấy position - tăng limit lên 50000
+      // Gọi RPC function để lấy position
       const { data: positionData, error: positionError } = await supabase
-        .from('questions_cache')
-        .select('position')
-        .eq('is_active', true)
-        .not('position', 'is', null)
-        .limit(50000);  // ✅ THÊM DÒNG NÀY
+        .rpc('get_distinct_positions');
       
       if (positionError) throw positionError;
       
-      const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
+      const uniquePositions = positionData.map(item => item.position).filter(Boolean);
       console.log(`📋 Đã load ${uniquePositions.length} positions`);
       setPositionList(uniquePositions);
     } catch (err) { 
