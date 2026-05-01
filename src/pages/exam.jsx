@@ -60,23 +60,25 @@ export default function ExamPage() {
   async function loadFilterOptions() {
     setLoadingOptions(true);
     try {
-      // Gọi RPC function để lấy series (không bị giới hạn 1000)
+      // Lấy series - dùng alias 'series_name'
       const { data: seriesData, error: seriesError } = await supabase
         .rpc('get_distinct_series');
       
       if (seriesError) throw seriesError;
       
-      const uniqueSeries = seriesData.map(item => item.series).filter(Boolean);
+      // Chú ý: kết quả trả về có tên cột là 'series_name'
+      const uniqueSeries = seriesData?.map(item => item.series_name).filter(Boolean) || [];
       console.log(`📋 Đã load ${uniqueSeries.length} series`);
       setSeriesList(uniqueSeries);
   
-      // Gọi RPC function để lấy position
+      // Lấy position - dùng alias 'position_name'
       const { data: positionData, error: positionError } = await supabase
         .rpc('get_distinct_positions');
       
       if (positionError) throw positionError;
       
-      const uniquePositions = positionData.map(item => item.position).filter(Boolean);
+      // Chú ý: kết quả trả về có tên cột là 'position_name'
+      const uniquePositions = positionData?.map(item => item.position_name).filter(Boolean) || [];
       console.log(`📋 Đã load ${uniquePositions.length} positions`);
       setPositionList(uniquePositions);
     } catch (err) { 
