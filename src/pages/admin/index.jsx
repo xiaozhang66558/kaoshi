@@ -156,16 +156,23 @@ export default function AdminPage() {
 
   async function loadFilterOptions() {
     try {
-      // Dùng RPC thay vì select trực tiếp
-      const { data: seriesData } = await supabase.rpc('get_distinct_series');
-      const uniqueSeries = seriesData?.map(item => item.series).filter(Boolean) || [];
+      // Dùng view hoặc RPC cho series
+      const { data: seriesData } = await supabase
+        .from('distinct_series_view')
+        .select('series');
+      
+      const uniqueSeries = [...new Set(seriesData?.map(item => item.series).filter(Boolean))];
       setSeriesOptions(uniqueSeries);
   
-      const { data: positionData } = await supabase.rpc('get_distinct_positions');
-      const uniquePositions = positionData?.map(item => item.position).filter(Boolean) || [];
+      // Dùng view hoặc RPC cho position
+      const { data: positionData } = await supabase
+        .from('distinct_positions_view')
+        .select('position');
+      
+      const uniquePositions = [...new Set(positionData?.map(item => item.position).filter(Boolean))];
       setPositionOptions(uniquePositions);
     } catch (err) {
-      console.error(err);
+      console.error('Lỗi load filter options:', err);
     }
   }
   
