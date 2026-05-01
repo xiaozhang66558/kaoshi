@@ -66,7 +66,7 @@ export default function ExamPage() {
         .select('series')
         .eq('is_active', true)
         .not('series', 'is', null)
-        .limit(50000);  // ✅ THÊM DÒNG NÀY
+        .range(0, 49999);  // ✅ Dùng range thay vì limit
       
       if (seriesError) throw seriesError;
       
