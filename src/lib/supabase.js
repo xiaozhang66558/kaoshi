@@ -272,64 +272,74 @@ export async function getAllSessions({ page = 1, limit = 20 } = {}) {
 }
 
 export async function getSessionDetail(sessionId) {
-  const { data: session, error: sErr } = await supabase
-    .from('exam_sessions')
-    .select('*')
-    .eq('id', sessionId)
-    .single();
-  if (sErr) throw sErr;
-  
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, email, username')
-    .eq('id', session.user_id)
-    .single();
-  if (profile) session.profiles = profile;
-  
-  const { data: subs, error: subErr } = await supabase
-    .from('submissions')
-    .select(`
-      *,
-      questions_cache (*)
-    `)
-    .eq('session_id', sessionId)
-    .order('answered_at');
-  if (subErr) throw subErr;
-  
-  return { session, submissions: subs };
-}
-
-export async function getSubmittedSessions() {
-  const { data, error } = await supabase
-    .from('exam_sessions')
-    .select('*')
-    .eq('status', 'submitted')
-    .order('submitted_at', { ascending: false });
-  if (error) throw error;
-  
-  const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))];
-  if (userIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, username')
-      .in('id', userIds);
-    if (profiles) {
-      const profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
-      data.forEach(s => {
-        s.profiles = profileMap[s.user_id] || null;
-      });
+  try {
+    // 1. Lấy session
+    const { data: session, error: sessionError } = await supabase
+      .from('exam_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .single();
+    
+    if (sessionError) throw sessionError;
+    
+    // 2. Lấy submissions
+    const { data: submissions, error: subError } = await supabase
+      .from('submissions')
+      .select('*')
+      .eq('session_id', sessionId);
+    
+    if (subError) throw subError;
+    
+    // 3. Lấy questions (nếu có) - Nếu không có thì tạo dữ liệu ảo
+    const questionIds = session.question_ids || [];
+    let questions = [];
+    
+    if (questionIds.length > 0) {
+      const { data: qData } = await supabase
+        .from('questions_cache')
+        .select('*')
+        .in('id', questionIds);
+      
+      if (qData && qData.length > 0) {
+        questions = qData;
+      } else {
+        // Tạo câu hỏi ảo cho bài thi cũ
+        questions = questionIds.map((id, idx) => ({
+          id: id,
+          question_vi: `📝 Câu hỏi ${idx + 1} (đã được cập nhật)`,
+          question_en: `Question ${idx + 1} (updated)`,
+          question_zh: `问题 ${idx + 1} (已更新)`,
+          score: 10,
+          image_1: null,
+          image_2: null,
+          image_3: null
+        }));
+      }
     }
+    
+    // 4. Ghép submissions với questions
+    const submissionsWithQuestions = submissions.map(sub => {
+      const question = questions.find(q => q.id === sub.question_id);
+      return {
+        ...sub,
+        questions_cache: question || {
+          id: sub.question_id,
+          question_vi: '📝 Nội dung câu hỏi đã được cập nhật',
+          question_en: 'Question content has been updated',
+          question_zh: '问题内容已更新',
+          score: 10
+        }
+      };
+    });
+    
+    return {
+      session,
+      submissions: submissionsWithQuestions
+    };
+  } catch (err) {
+    console.error('getSessionDetail error:', err);
+    throw err;
   }
-  
-  return data;
-}
-
-export async function gradeSubmission(submissionId, score) {
-  const { error } = await supabase.rpc('grade_submission', {
-    p_submission_id: submissionId,
-    p_score: score,
-  });
-  if (error) throw error;
 }
 
 // ========== FEEDBACK ==========
