@@ -156,26 +156,13 @@ export default function AdminPage() {
 
   async function loadFilterOptions() {
     try {
-      // Lấy series - tăng limit lên 50000
-      const { data: seriesData } = await supabase
-        .from('questions_cache')
-        .select('series')
-        .eq('is_active', true)
-        .not('series', 'is', null)
-        .limit(50000);  // ✅ THÊM DÒNG NÀY
-      
-      const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
+      // Dùng RPC thay vì select trực tiếp
+      const { data: seriesData } = await supabase.rpc('get_distinct_series');
+      const uniqueSeries = seriesData?.map(item => item.series).filter(Boolean) || [];
       setSeriesOptions(uniqueSeries);
   
-      // Lấy position - tăng limit lên 50000
-      const { data: positionData } = await supabase
-        .from('questions_cache')
-        .select('position')
-        .eq('is_active', true)
-        .not('position', 'is', null)
-        .limit(50000);  // ✅ THÊM DÒNG NÀY
-      
-      const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
+      const { data: positionData } = await supabase.rpc('get_distinct_positions');
+      const uniquePositions = positionData?.map(item => item.position).filter(Boolean) || [];
       setPositionOptions(uniquePositions);
     } catch (err) {
       console.error(err);
