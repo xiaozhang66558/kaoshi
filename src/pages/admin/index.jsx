@@ -40,7 +40,21 @@ export default function AdminPage() {
 
   // Hàm hiển thị câu hỏi với cả 3 ngôn ngữ (cho admin)
   const getQuestionDisplay = (q) => {
-    if (!q) return 'Câu hỏi không tồn tại';
+    if (!q || !q.id) {
+      return (
+        <div className={styles.questionLanguages}>
+          <div className={styles.langItem}>
+            <span className={styles.langLabel}>📝:</span>
+            <span>Câu hỏi đã được cập nhật hoặc không còn tồn tại</span>
+          </div>
+          <div className={styles.langItem}>
+            <span className={styles.langLabel}>💡:</span>
+            <span>Bài thi này được tạo từ phiên bản cũ, điểm số vẫn được giữ nguyên</span>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className={styles.questionLanguages}>
         <div className={styles.langItem}>
