@@ -20,7 +20,6 @@ exports.handler = async (event) => {
   try {
     console.log('[sync-questions] Bắt đầu đồng bộ...');
     
-    // 1. Lấy dữ liệu từ Google Sheet
     const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEETS_ID}/values/${encodeURIComponent(SHEET_RANGE)}?key=${process.env.GOOGLE_API_KEY}`;
     const sheetsRes = await fetch(sheetsUrl);
     if (!sheetsRes.ok) {
@@ -31,7 +30,6 @@ exports.handler = async (event) => {
     
     console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
 
-    // 2. Xử lý dữ liệu
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -48,6 +46,7 @@ exports.handler = async (event) => {
       else if (diffValue === '3') difficulty = 'hard';
       
       questions.push({
+        sheet_row_id: `row_${i}_${Date.now()}`,  // ✅ THÊM DÒNG NÀY
         series:       String(row[0] || '').trim(),
         position:     String(row[1] || '').trim(),
         question_en:  String(row[2] || '').trim(),
@@ -74,7 +73,7 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // 3. Xóa hết dữ liệu cũ (nhanh hơn UPSERT)
+    // Xóa dữ liệu cũ
     console.log('[sync-questions] Xóa dữ liệu cũ...');
     
     // Xóa submissions trước (để tránh lỗi khóa ngoại)
@@ -85,7 +84,7 @@ exports.handler = async (event) => {
     
     console.log('[sync-questions] ✅ Đã xóa dữ liệu cũ');
 
-    // 4. Thêm dữ liệu mới (1 lần duy nhất, không batch)
+    // Thêm dữ liệu mới
     console.log('[sync-questions] Đang thêm câu hỏi mới...');
     const { error: insertError } = await supabase
       .from('questions_cache')
