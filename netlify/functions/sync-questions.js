@@ -1,6 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SHEET_RANGE = 'Sheet1!A2:J10000';
+const BATCH_SIZE = 300; // Chia thành batch 300 câu hỏi mỗi lần
 
 exports.handler = async (event) => {
   const headers = {
@@ -18,6 +19,8 @@ exports.handler = async (event) => {
   }
 
   try {
+    console.log('[sync-questions] Bắt đầu đồng bộ...');
+    
     const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEETS_ID}/values/${encodeURIComponent(SHEET_RANGE)}?key=${process.env.GOOGLE_API_KEY}`;
     const sheetsRes = await fetch(sheetsUrl);
     if (!sheetsRes.ok) {
@@ -42,7 +45,6 @@ exports.handler = async (event) => {
         else if (diffValue === '3') difficulty = 'hard';
         
         return {
-          // KHÔNG dùng sheet_row_id cố định, tạo ID mới mỗi lần sync
           sheet_row_id: `${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
           series:       String(row[0] || '').trim(),
           position:     String(row[1] || '').trim(),
@@ -64,34 +66,59 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
     }
 
+    console.log(`[sync-questions] Đọc được ${questions.length} câu hỏi từ Google Sheet`);
+
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
     // 1. Vô hiệu hóa tất cả câu hỏi hiện tại (không xóa)
+    console.log('[sync-questions] Bước 1: Vô hiệu hóa câu hỏi cũ...');
     const { error: updateError } = await supabase
       .from('questions_cache')
       .update({ is_active: false })
       .neq('id', '00000000-0000-0000-0000-000000000000');
     
     if (updateError) throw updateError;
+    console.log('[sync-questions] ✅ Đã vô hiệu hóa câu hỏi cũ');
 
-    // 2. Thêm câu hỏi mới (KHÔNG update, chỉ insert)
-    const { error: insertError } = await supabase
-      .from('questions_cache')
-      .insert(questions);
+    // 2. Thêm câu hỏi mới theo BATCH
+    console.log(`[sync-questions] Bước 2: Thêm ${questions.length} câu hỏi mới theo batch ${BATCH_SIZE}...`);
     
-    if (insertError) throw insertError;
+    let inserted = 0;
+    let failed = 0;
+    
+    for (let i = 0; i < questions.length; i += BATCH_SIZE) {
+      const batch = questions.slice(i, i + BATCH_SIZE);
+      
+      try {
+        const { error: insertError } = await supabase
+          .from('questions_cache')
+          .insert(batch);
+        
+        if (insertError) {
+          console.error(`[sync-questions] Lỗi batch ${i/BATCH_SIZE + 1}:`, insertError.message);
+          failed += batch.length;
+        } else {
+          inserted += batch.length;
+          console.log(`[sync-questions] ✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã thêm ${batch.length} câu hỏi`);
+        }
+      } catch (batchError) {
+        console.error(`[sync-questions] Lỗi batch ${i/BATCH_SIZE + 1}:`, batchError.message);
+        failed += batch.length;
+      }
+    }
 
-    console.log(`[sync-questions] Đã thêm mới ${questions.length} câu hỏi (các câu hỏi cũ đã được vô hiệu hóa)`);
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm: ${inserted}, Lỗi: ${failed}`);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: questions.length,
+        synced: inserted,
+        failed: failed,
         note: 'Các câu hỏi cũ đã được vô hiệu hóa, bài thi cũ vẫn giữ nguyên nội dung'
       }),
     };
