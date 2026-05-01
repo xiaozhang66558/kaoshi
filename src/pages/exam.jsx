@@ -60,23 +60,38 @@ export default function ExamPage() {
   async function loadFilterOptions() {
     setLoadingOptions(true);
     try {
-      const { data: seriesData } = await supabase
+      // Lấy series - tăng limit lên 50000
+      const { data: seriesData, error: seriesError } = await supabase
         .from('questions_cache')
         .select('series')
         .eq('is_active', true)
-        .not('series', 'is', null);
+        .not('series', 'is', null)
+        .limit(50000);  // ✅ THÊM DÒNG NÀY
+      
+      if (seriesError) throw seriesError;
+      
       const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
+      console.log(`📋 Đã load ${uniqueSeries.length} series`);
       setSeriesList(uniqueSeries);
-
-      const { data: positionData } = await supabase
+  
+      // Lấy position - tăng limit lên 50000
+      const { data: positionData, error: positionError } = await supabase
         .from('questions_cache')
         .select('position')
         .eq('is_active', true)
-        .not('position', 'is', null);
+        .not('position', 'is', null)
+        .limit(50000);  // ✅ THÊM DÒNG NÀY
+      
+      if (positionError) throw positionError;
+      
       const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
+      console.log(`📋 Đã load ${uniquePositions.length} positions`);
       setPositionList(uniquePositions);
-    } catch (err) { console.error(err); } 
-    finally { setLoadingOptions(false); }
+    } catch (err) { 
+      console.error(err); 
+    } finally { 
+      setLoadingOptions(false); 
+    }
   }
 
   useEffect(() => {
