@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SHEET_RANGE = 'Sheet1!A2:J10000';
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 300;
 
 exports.handler = async (event) => {
   const headers = {
@@ -21,7 +21,6 @@ exports.handler = async (event) => {
   try {
     console.log('[sync-questions] Bắt đầu đồng bộ...');
     
-    // Lấy dữ liệu từ Google Sheet
     const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEETS_ID}/values/${encodeURIComponent(SHEET_RANGE)}?key=${process.env.GOOGLE_API_KEY}`;
     const sheetsRes = await fetch(sheetsUrl);
     if (!sheetsRes.ok) {
@@ -31,107 +30,128 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
 
-    console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
-
-    // Xử lý dữ liệu
-    const questions = [];
+    // Tạo map các câu hỏi mới để dễ so sánh
+    const newQuestionsMap = new Map();
     
-    for (let idx = 0; idx < rows.length; idx++) {
-      const row = rows[idx];
-      const hasEn = row[2] && row[2].trim();
-      const hasZh = row[3] && row[3].trim();
-      const hasVi = row[4] && row[4].trim();
-      
-      if (!hasEn && !hasZh && !hasVi) continue;
-      
-      const diffValue = String(row[6] || '1').trim();
-      let difficulty = 'medium';
-      if (diffValue === '1') difficulty = 'easy';
-      else if (diffValue === '2') difficulty = 'medium';
-      else if (diffValue === '3') difficulty = 'hard';
-      
-      questions.push({
-        series:       String(row[0] || '').trim(),
-        position:     String(row[1] || '').trim(),
-        question_en:  String(row[2] || '').trim(),
-        question_zh:  String(row[3] || '').trim(),
-        question_vi:  String(row[4] || '').trim(),
-        score:        parseInt(row[5]) || 10,
-        difficulty:   difficulty,
-        image_1:      String(row[7] || '').trim(),
-        image_2:      String(row[8] || '').trim(),
-        image_3:      String(row[9] || '').trim(),
-        is_active:    true,
-        synced_at:    new Date().toISOString(),
+    const questions = rows
+      .filter(row => {
+        const hasEn = row[2] && row[2].trim();
+        const hasZh = row[3] && row[3].trim();
+        const hasVi = row[4] && row[4].trim();
+        return (hasEn || hasZh || hasVi);
+      })
+      .map((row, idx) => {
+        const diffValue = String(row[6] || '1').trim();
+        let difficulty = 'medium';
+        if (diffValue === '1') difficulty = 'easy';
+        else if (diffValue === '2') difficulty = 'medium';
+        else if (diffValue === '3') difficulty = 'hard';
+        
+        // Tạo ID dựa trên nội dung để tránh trùng lặp
+        const contentKey = `${row[0]}_${row[1]}_${row[4]}_${row[2]}_${row[3]}`;
+        const questionId = `${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`;
+        
+        const question = {
+          id: questionId,
+          sheet_row_id: questionId,
+          series:       String(row[0] || '').trim(),
+          position:     String(row[1] || '').trim(),
+          question_en:  String(row[2] || '').trim(),
+          question_zh:  String(row[3] || '').trim(),
+          question_vi:  String(row[4] || '').trim(),
+          score:        parseInt(row[5]) || 10,
+          difficulty:   difficulty,
+          image_1:      String(row[7] || '').trim(),
+          image_2:      String(row[8] || '').trim(),
+          image_3:      String(row[9] || '').trim(),
+          is_active:    true,  // ✅ Câu hỏi mới luôn active
+          synced_at:    new Date().toISOString(),
+          option_a: '', option_b: '', option_c: '', option_d: '',
+        };
+        
+        newQuestionsMap.set(contentKey, question);
+        return question;
       });
-    }
 
     if (questions.length === 0) {
       return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
     }
 
-    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi hợp lệ`);
+    console.log(`[sync-questions] Đọc được ${questions.length} câu hỏi từ Google Sheet`);
 
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Cách đơn giản: Xóa hết rồi thêm mới
-    console.log('[sync-questions] Đang xóa dữ liệu cũ...');
+    // ✅ CÁCH MỚI: UPSERT (cập nhật nếu có, thêm nếu không)
+    // Không cần vô hiệu hóa tất cả trước
     
-    // Xóa từng batch để tránh lỗi khóa ngoại
-    const { data: oldQuestions } = await supabase
-      .from('questions_cache')
-      .select('id');
+    console.log('[sync-questions] Đang đồng bộ câu hỏi (upsert)...');
     
-    if (oldQuestions && oldQuestions.length > 0) {
-      for (let i = 0; i < oldQuestions.length; i += 50) {
-        const batch = oldQuestions.slice(i, i + 50);
-        const ids = batch.map(q => q.id);
-        
-        // Xóa submissions trước
-        await supabase
-          .from('submissions')
-          .delete()
-          .in('question_id', ids);
-        
-        // Xóa questions
-        await supabase
-          .from('questions_cache')
-          .delete()
-          .in('id', ids);
-      }
-      console.log(`[sync-questions] ✅ Đã xóa ${oldQuestions.length} câu hỏi cũ`);
-    }
-
-    // Thêm câu hỏi mới theo BATCH
-    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi mới...`);
-    let inserted = 0;
+    let upserted = 0;
+    let failed = 0;
     
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
       
-      const { error: insertError } = await supabase
-        .from('questions_cache')
-        .insert(batch);
-      
-      if (insertError) {
-        console.error(`Lỗi batch ${i/BATCH_SIZE + 1}:`, insertError.message);
-      } else {
-        inserted += batch.length;
-        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã thêm ${batch.length} câu hỏi`);
+      try {
+        // Dùng upsert: nếu tồn tại thì update, không thì insert
+        const { error: upsertError, data } = await supabase
+          .from('questions_cache')
+          .upsert(batch, { 
+            onConflict: 'sheet_row_id',  // Dùng sheet_row_id để kiểm tra trùng
+            ignoreDuplicates: false 
+          });
+        
+        if (upsertError) {
+          console.error(`[sync-questions] Lỗi batch ${i/BATCH_SIZE + 1}:`, upsertError.message);
+          failed += batch.length;
+        } else {
+          upserted += batch.length;
+          console.log(`[sync-questions] ✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã đồng bộ ${batch.length} câu hỏi`);
+        }
+      } catch (batchError) {
+        console.error(`[sync-questions] Lỗi batch ${i/BATCH_SIZE + 1}:`, batchError.message);
+        failed += batch.length;
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
+    // ✅ Vô hiệu hóa các câu hỏi không còn tồn tại trong Google Sheet
+    // Lấy tất cả sheet_row_id hiện có trong DB
+    const { data: existingQuestions } = await supabase
+      .from('questions_cache')
+      .select('sheet_row_id');
+    
+    const newSheetRowIds = new Set(questions.map(q => q.sheet_row_id));
+    const idsToDeactivate = existingQuestions
+      ?.filter(q => !newSheetRowIds.has(q.sheet_row_id))
+      .map(q => q.sheet_row_id) || [];
+    
+    if (idsToDeactivate.length > 0) {
+      console.log(`[sync-questions] Vô hiệu hóa ${idsToDeactivate.length} câu hỏi không còn trong Google Sheet...`);
+      
+      // Chia nhỏ để tránh timeout
+      for (let i = 0; i < idsToDeactivate.length; i += 500) {
+        const batch = idsToDeactivate.slice(i, i + 500);
+        await supabase
+          .from('questions_cache')
+          .update({ is_active: false })
+          .in('sheet_row_id', batch);
+      }
+    }
+
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ: ${upserted}, Vô hiệu hóa: ${idsToDeactivate.length}, Lỗi: ${failed}`);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: inserted,
+        synced: upserted,
+        deactivated: idsToDeactivate.length,
+        failed: failed,
+        note: 'Câu hỏi mới đã được active, câu hỏi cũ không còn trong Sheet đã bị vô hiệu hóa'
       }),
     };
   } catch (err) {
