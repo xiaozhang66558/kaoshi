@@ -91,7 +91,7 @@ export default function ExamPage() {
         }
         return t - 1;
       });
-    }, 1000);
+    }, 10000);
     return () => clearInterval(timerRef.current);
   }, [phase]);
 
