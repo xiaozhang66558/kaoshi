@@ -290,7 +290,7 @@ export async function getSessionDetail(sessionId) {
     
     if (subError) throw subError;
     
-    // 3. Lấy questions (nếu có) - Nếu không có thì tạo dữ liệu ảo
+    // 3. Lấy questions (nếu có)
     const questionIds = session.question_ids || [];
     let questions = [];
     
@@ -302,33 +302,28 @@ export async function getSessionDetail(sessionId) {
       
       if (qData && qData.length > 0) {
         questions = qData;
-      } else {
-        // Tạo câu hỏi ảo cho bài thi cũ
-        questions = questionIds.map((id, idx) => ({
-          id: id,
-          question_vi: `📝 Câu hỏi ${idx + 1} (đã được cập nhật)`,
-          question_en: `Question ${idx + 1} (updated)`,
-          question_zh: `问题 ${idx + 1} (已更新)`,
-          score: 10,
-          image_1: null,
-          image_2: null,
-          image_3: null
-        }));
       }
     }
     
-    // 4. Ghép submissions với questions
+    // 4. Ghép submissions với questions (tạo dữ liệu ảo nếu không có)
     const submissionsWithQuestions = submissions.map(sub => {
       const question = questions.find(q => q.id === sub.question_id);
+      
+      // Nếu không tìm thấy câu hỏi, tạo object ảo
+      const fakeQuestion = {
+        id: sub.question_id,
+        question_vi: '📝 Bài thi từ phiên bản cũ (nội dung đã được cập nhật)',
+        question_en: 'Old exam version (content has been updated)',
+        question_zh: '旧版本考试（内容已更新）',
+        score: 10,
+        image_1: null,
+        image_2: null,
+        image_3: null
+      };
+      
       return {
         ...sub,
-        questions_cache: question || {
-          id: sub.question_id,
-          question_vi: '📝 Nội dung câu hỏi đã được cập nhật',
-          question_en: 'Question content has been updated',
-          question_zh: '问题内容已更新',
-          score: 10
-        }
+        questions_cache: question || fakeQuestion
       };
     });
     
