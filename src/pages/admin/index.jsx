@@ -764,9 +764,9 @@ export default function AdminPage() {
                       return (
                         <tr key={s.id}>
                           <td className={styles.nameCell}>
-                            <strong>{s.profiles?.full_name || s.user_id}</strong>
-                            {s.profiles?.username && (
-                              <span className={styles.username}>({s.profiles.username})</span>
+                            <strong>{session.profiles?.full_name || session.profiles?.username || session.user_id}</strong>
+                            {session.profiles?.email && (
+                              <span className={styles.username}>({session.profiles.email})</span>
                             )}
                           </td>
                           <td className={styles.centerCell}>
