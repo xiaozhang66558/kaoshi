@@ -337,6 +337,56 @@ export async function getSessionDetail(sessionId) {
   }
 }
 
+// ========== GRADE SUBMISSION (THÊM MỚI) ==========
+export async function gradeSubmission(submissionId, score) {
+  // Cập nhật điểm cho submission
+  const { error: gradeError } = await supabase
+    .from('submissions')
+    .update({
+      score: score,
+      graded_at: new Date().toISOString()
+    })
+    .eq('id', submissionId);
+  
+  if (gradeError) throw gradeError;
+  
+  // Lấy session_id từ submission vừa chấm
+  const { data: submission, error: getSubError } = await supabase
+    .from('submissions')
+    .select('session_id')
+    .eq('id', submissionId)
+    .single();
+  
+  if (getSubError) throw getSubError;
+  
+  // Tính tổng điểm của tất cả submissions trong session
+  const { data: allSubmissions, error: getAllError } = await supabase
+    .from('submissions')
+    .select('score')
+    .eq('session_id', submission.session_id);
+  
+  if (getAllError) throw getAllError;
+  
+  const totalScore = allSubmissions.reduce((sum, s) => sum + (s.score || 0), 0);
+  
+  // Cập nhật tổng điểm cho session
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  const { error: updateSessionError } = await supabase
+    .from('exam_sessions')
+    .update({
+      score: totalScore,
+      status: 'graded',
+      graded_by: user?.id,
+      graded_at: new Date().toISOString()
+    })
+    .eq('id', submission.session_id);
+  
+  if (updateSessionError) throw updateSessionError;
+  
+  return { totalScore };
+}
+
 // ========== FEEDBACK ==========
 export async function saveFeedback(submissionId, feedback, feedbackImages = []) {
   const { error } = await supabase
