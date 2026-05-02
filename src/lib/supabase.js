@@ -146,7 +146,12 @@ export async function createExamSession({ durationMins = 30, series = null, posi
     }
   }
   
-  function getRandomItems(arr, n) {
+  // Hàm lấy ngẫu nhiên không trùng lặp trong cùng nhóm
+  function getRandomDistinctItems(arr, n) {
+    if (n > arr.length) {
+      console.warn(`Không đủ phần tử, cần ${n} nhưng chỉ có ${arr.length}`);
+      return [...arr];
+    }
     const shuffled = [...arr];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -155,11 +160,29 @@ export async function createExamSession({ durationMins = 30, series = null, posi
     return shuffled.slice(0, n);
   }
   
-  const selected5 = getRandomItems(questionsByScore[5], targetCounts[5]);
-  const selected10 = getRandomItems(questionsByScore[10], targetCounts[10]);
-  const selected20 = getRandomItems(questionsByScore[20], targetCounts[20]);
+  const selected5 = getRandomDistinctItems(questionsByScore[5], targetCounts[5]);
+  const selected10 = getRandomDistinctItems(questionsByScore[10], targetCounts[10]);
+  const selected20 = getRandomDistinctItems(questionsByScore[20], targetCounts[20]);
   
-  const allSelected = [...selected5, ...selected10, ...selected20];
+  // Gộp tất cả câu hỏi đã chọn
+  let allSelected = [...selected5, ...selected10, ...selected20];
+  
+  // Kiểm tra và loại bỏ trùng lặp (phòng ngừa)
+  const uniqueIds = new Set();
+  const uniqueQuestions = [];
+  for (const q of allSelected) {
+    if (!uniqueIds.has(q.id)) {
+      uniqueIds.add(q.id);
+      uniqueQuestions.push(q);
+    }
+  }
+  
+  if (uniqueQuestions.length !== allSelected.length) {
+    console.warn(`Phát hiện ${allSelected.length - uniqueQuestions.length} câu hỏi trùng lặp, đã loại bỏ`);
+    allSelected = uniqueQuestions;
+  }
+  
+  // Xáo trộn lần cuối
   for (let i = allSelected.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [allSelected[i], allSelected[j]] = [allSelected[j], allSelected[i]];
@@ -282,7 +305,18 @@ export async function getSessionDetail(sessionId) {
     
     if (sessionError) throw sessionError;
     
-    // 2. Lấy submissions
+    // 2. Lấy thông tin profile của thí sinh
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('full_name, email, username')
+      .eq('id', session.user_id)
+      .single();
+    
+    if (!profileError && profile) {
+      session.profiles = profile;
+    }
+    
+    // 3. Lấy submissions
     const { data: submissions, error: subError } = await supabase
       .from('submissions')
       .select('*')
@@ -290,7 +324,7 @@ export async function getSessionDetail(sessionId) {
     
     if (subError) throw subError;
     
-    // 3. Lấy questions (nếu có)
+    // 4. Lấy questions (nếu có)
     const questionIds = session.question_ids || [];
     let questions = [];
     
@@ -305,11 +339,10 @@ export async function getSessionDetail(sessionId) {
       }
     }
     
-    // 4. Ghép submissions với questions (tạo dữ liệu ảo nếu không có)
+    // 5. Ghép submissions với questions (tạo dữ liệu ảo nếu không có)
     const submissionsWithQuestions = submissions.map(sub => {
       const question = questions.find(q => q.id === sub.question_id);
       
-      // Nếu không tìm thấy câu hỏi, tạo object ảo
       const fakeQuestion = {
         id: sub.question_id,
         question_vi: '📝 Bài thi từ phiên bản cũ (nội dung đã được cập nhật)',
@@ -337,7 +370,7 @@ export async function getSessionDetail(sessionId) {
   }
 }
 
-// ========== GRADE SUBMISSION (THÊM MỚI) ==========
+// ========== GRADE SUBMISSION ==========
 export async function gradeSubmission(submissionId, score) {
   // Cập nhật điểm cho submission
   const { error: gradeError } = await supabase
