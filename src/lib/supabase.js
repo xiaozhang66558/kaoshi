@@ -243,24 +243,6 @@ export async function getSessionWithQuestions(sessionId) {
   return { session, questions: ordered };
 }
 
-export async function getSessionWithQuestions(sessionId) {
-  const { data: session, error: sErr } = await supabase
-    .from('exam_sessions')
-    .select('*')
-    .eq('id', sessionId)
-    .single();
-  if (sErr) throw sErr;
-  
-  const { data: questions, error: qErr } = await supabase
-    .from('questions_cache')
-    .select('id, question_en, question_zh, question_vi, image_1, image_2, image_3, option_a, option_b, option_c, option_d, topic, difficulty, score, series, position')
-    .in('id', session.question_ids);
-  if (qErr) throw qErr;
-  
-  const ordered = session.question_ids.map(id => questions.find(q => q.id === id)).filter(Boolean);
-  return { session, questions: ordered };
-}
-
 export async function getAnswers(sessionId) {
   const { data, error } = await supabase
     .from('submissions')
