@@ -261,7 +261,22 @@ export async function submitExam(sessionId) {
   if (error) throw error;
   return data;
 }
-
+export async function getActiveSession() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  
+  const { data, error } = await supabase
+    .from('exam_sessions')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('status', 'in_progress')
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  
+  if (error) throw error;
+  return data;
+}
 // ========== ADMIN ==========
 export async function getAllSessions({ page = 1, limit = 20 } = {}) {
   const from = (page - 1) * limit;
