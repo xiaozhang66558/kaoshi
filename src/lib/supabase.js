@@ -106,16 +106,28 @@ export async function saveAnswer(sessionId, questionId, userAnswer, imageUrls = 
   console.log('Save answer success');
 }
 
+export async function getActiveSession() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  
+  const { data, error } = await supabase
+    .from('exam_sessions')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('status', 'in_progress')
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  
+  if (error) throw error;
+  return data;
+}
+
 export async function createExamSession({ durationMins = 30, series = null, position = null } = {}) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Chưa đăng nhập');
 
-  const { data: existing } = await supabase
-    .from('exam_sessions')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('status', 'in_progress')
-    .maybeSingle();
+  const existing = await getActiveSession();
   if (existing) throw new Error('Bạn đang có bài thi chưa hoàn thành');
 
   let query = supabase.from('questions_cache').select('id, score').eq('is_active', true);
@@ -146,7 +158,6 @@ export async function createExamSession({ durationMins = 30, series = null, posi
     }
   }
   
-  // Hàm lấy ngẫu nhiên không trùng
   function getRandomDistinctItems(arr, n) {
     if (n > arr.length) return [...arr];
     const shuffled = [...arr];
@@ -161,9 +172,7 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   const selected10 = getRandomDistinctItems(questionsByScore[10], targetCounts[10]);
   const selected20 = getRandomDistinctItems(questionsByScore[20], targetCounts[20]);
   
-  // Gộp và loại bỏ trùng lặp bằng Map (dùng id làm key)
   const questionsMap = new Map();
-  
   [...selected5, ...selected10, ...selected20].forEach(q => {
     if (!questionsMap.has(q.id)) {
       questionsMap.set(q.id, q);
@@ -176,7 +185,6 @@ export async function createExamSession({ durationMins = 30, series = null, posi
     console.warn(`⚠️ Đã phát hiện và loại bỏ ${(selected5.length + selected10.length + selected20.length) - uniqueQuestions.length} câu hỏi trùng lặp`);
   }
   
-  // Xáo trộn lần cuối
   for (let i = uniqueQuestions.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [uniqueQuestions[i], uniqueQuestions[j]] = [uniqueQuestions[j], uniqueQuestions[i]];
@@ -187,7 +195,6 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   const totalScore = uniqueQuestions.reduce((sum, q) => sum + q.score, 0);
   
   console.log(`✅ Tạo đề thi: ${totalQuestions} câu, tổng điểm ${totalScore}`);
-  console.log(`📋 Danh sách ID câu hỏi (${selectedIds.length} câu):`, selectedIds);
   
   const { data: session, error: insertErr } = await supabase
     .from('exam_sessions')
@@ -225,13 +232,11 @@ export async function getSessionWithQuestions(sessionId) {
     .in('id', session.question_ids);
   if (qErr) throw qErr;
   
-  // Tạo map để tra cứu nhanh
   const questionsMap = new Map();
   questions.forEach(q => {
     questionsMap.set(q.id, q);
   });
   
-  // Giữ đúng thứ tự và loại bỏ undefined
   const ordered = session.question_ids
     .map(id => questionsMap.get(id))
     .filter(q => q !== undefined);
@@ -261,22 +266,7 @@ export async function submitExam(sessionId) {
   if (error) throw error;
   return data;
 }
-export async function getActiveSession() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  
-  const { data, error } = await supabase
-    .from('exam_sessions')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('status', 'in_progress')
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  
-  if (error) throw error;
-  return data;
-}
+
 // ========== ADMIN ==========
 export async function getAllSessions({ page = 1, limit = 20 } = {}) {
   const from = (page - 1) * limit;
@@ -312,7 +302,6 @@ export async function getAllSessions({ page = 1, limit = 20 } = {}) {
 
 export async function getSessionDetail(sessionId) {
   try {
-    // 1. Lấy session
     const { data: session, error: sessionError } = await supabase
       .from('exam_sessions')
       .select('*')
@@ -321,7 +310,6 @@ export async function getSessionDetail(sessionId) {
     
     if (sessionError) throw sessionError;
     
-    // 2. Lấy thông tin profile của thí sinh
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('full_name, email, username')
@@ -332,7 +320,6 @@ export async function getSessionDetail(sessionId) {
       session.profiles = profile;
     }
     
-    // 3. Lấy submissions
     const { data: submissions, error: subError } = await supabase
       .from('submissions')
       .select('*')
@@ -340,7 +327,6 @@ export async function getSessionDetail(sessionId) {
     
     if (subError) throw subError;
     
-    // 4. Lấy questions (nếu có)
     const questionIds = session.question_ids || [];
     let questions = [];
     
@@ -355,8 +341,7 @@ export async function getSessionDetail(sessionId) {
       }
     }
     
-    // 5. Ghép submissions với questions (tạo dữ liệu ảo nếu không có)
-    const submissionsWithQuestions = submissions.map(sub => {
+    const submissionsWithQuestions = (submissions || []).map(sub => {
       const question = questions.find(q => q.id === sub.question_id);
       
       const fakeQuestion = {
@@ -388,7 +373,6 @@ export async function getSessionDetail(sessionId) {
 
 // ========== GRADE SUBMISSION ==========
 export async function gradeSubmission(submissionId, score) {
-  // Cập nhật điểm cho submission
   const { error: gradeError } = await supabase
     .from('submissions')
     .update({
@@ -399,7 +383,6 @@ export async function gradeSubmission(submissionId, score) {
   
   if (gradeError) throw gradeError;
   
-  // Lấy session_id từ submission vừa chấm
   const { data: submission, error: getSubError } = await supabase
     .from('submissions')
     .select('session_id')
@@ -408,7 +391,6 @@ export async function gradeSubmission(submissionId, score) {
   
   if (getSubError) throw getSubError;
   
-  // Tính tổng điểm của tất cả submissions trong session
   const { data: allSubmissions, error: getAllError } = await supabase
     .from('submissions')
     .select('score')
@@ -418,7 +400,6 @@ export async function gradeSubmission(submissionId, score) {
   
   const totalScore = allSubmissions.reduce((sum, s) => sum + (s.score || 0), 0);
   
-  // Cập nhật tổng điểm cho session
   const { data: { user } } = await supabase.auth.getUser();
   
   const { error: updateSessionError } = await supabase
@@ -446,4 +427,16 @@ export async function saveFeedback(submissionId, feedback, feedbackImages = []) 
     })
     .eq('id', submissionId);
   if (error) throw error;
+}
+
+// ========== HELPER ==========
+export async function getSubmittedSessions() {
+  const { data, error } = await supabase
+    .from('exam_sessions')
+    .select('*')
+    .eq('status', 'submitted')
+    .order('submitted_at', { ascending: false });
+  
+  if (error) throw error;
+  return data;
 }
