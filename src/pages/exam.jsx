@@ -58,35 +58,85 @@ export default function ExamPage() {
   }, []);
 
 async function loadFilterOptions() {
-  setLoadingOptions(true);
-  try {
-    // ✅ ĐỌC TỪ VIEW (GIỐNG ADMIN)
-    const { data: seriesData, error: seriesError } = await supabase
-      .from('distinct_series_view')
-      .select('series');
-    
-    if (seriesError) throw seriesError;
-    
-    const uniqueSeries = seriesData?.map(item => item.series).filter(Boolean) || [];
-    console.log(`📋 Đã load ${uniqueSeries.length} series`);
-    setSeriesList(uniqueSeries.sort());
-
-    // ✅ ĐỌC TỪ VIEW (GIỐNG ADMIN)
-    const { data: positionData, error: positionError } = await supabase
-      .from('distinct_positions_view')
-      .select('position');
-    
-    if (positionError) throw positionError;
-    
-    const uniquePositions = positionData?.map(item => item.position).filter(Boolean) || [];
-    console.log(`📋 Đã load ${uniquePositions.length} positions`);
-    setPositionList(uniquePositions.sort());
-  } catch (err) { 
-    console.error('Lỗi load filter options:', err); 
-  } finally { 
-    setLoadingOptions(false); 
+    setLoadingOptions(true);
+    try {
+      // ✅ Lấy TẤT CẢ series bằng phân trang
+      let allSeries = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const from = page * pageSize;
+        const to = (page + 1) * pageSize - 1;
+        
+        console.log(`🔍 Đang lấy series từ ${from} đến ${to}...`);
+        
+        const { data, error } = await supabase
+          .from('questions_cache')
+          .select('series')
+          .eq('is_active', true)
+          .not('series', 'is', null)
+          .range(from, to);
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allSeries.push(...data);
+          console.log(`✅ Lấy được ${data.length} dòng series`);
+          page++;
+        }
+        
+        // Nếu số dòng lấy được ít hơn pageSize -> đã hết dữ liệu
+        if (!data || data.length < pageSize) {
+          hasMore = false;
+        }
+      }
+      
+      const uniqueSeries = [...new Set(allSeries.map(item => item.series).filter(Boolean))];
+      console.log(`📋 Tổng cộng đã load ${uniqueSeries.length} series (từ ${allSeries.length} dòng)`);
+      setSeriesList(uniqueSeries.sort());
+  
+      // ✅ Lấy TẤT CẢ positions bằng phân trang
+      let allPositions = [];
+      page = 0;
+      hasMore = true;
+      
+      while (hasMore) {
+        const from = page * pageSize;
+        const to = (page + 1) * pageSize - 1;
+        
+        console.log(`🔍 Đang lấy positions từ ${from} đến ${to}...`);
+        
+        const { data, error } = await supabase
+          .from('questions_cache')
+          .select('position')
+          .eq('is_active', true)
+          .not('position', 'is', null)
+          .range(from, to);
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allPositions.push(...data);
+          console.log(`✅ Lấy được ${data.length} dòng positions`);
+          page++;
+        }
+        
+        if (!data || data.length < pageSize) {
+          hasMore = false;
+        }
+      }
+      
+      const uniquePositions = [...new Set(allPositions.map(item => item.position).filter(Boolean))];
+      console.log(`📋 Tổng cộng đã load ${uniquePositions.length} positions (từ ${allPositions.length} dòng)`);
+      setPositionList(uniquePositions.sort());
+    } catch (err) { 
+      console.error('Lỗi load filter options:', err); 
+    } finally { 
+      setLoadingOptions(false); 
+    }
   }
-}
 
   async function loadSession(s) {
     const { session: sess, questions: qs } = await getSessionWithQuestions(s.id);
