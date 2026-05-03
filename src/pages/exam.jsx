@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import {
-  supabase, getProfile, getActiveSession, saveAnswer, submitExam
+  supabase, getProfile, getActiveSession, createExamSession,
+  getSessionWithQuestions, saveAnswer, getAnswers, submitExam
 } from '../lib/supabase';
 import Modal from '../components/Modal';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -32,86 +33,13 @@ export default function ExamPage() {
   const [selectedPosition, setSelectedPosition] = useState('');
   const [loadingOptions, setLoadingOptions] = useState(false);
 
-  // Hàm lấy câu hỏi theo ngôn ngữ
+  // Hàm lấy câu hỏi theo ngôn ngữ hiện tại
   const getQuestionByLanguage = (q) => {
     if (!q) return '⚠️ Câu hỏi không tồn tại';
     if (language === 'en') return q.question_en || q.question;
     if (language === 'zh') return q.question_zh || q.question;
     return q.question_vi || q.question;
   };
-
-  // ✅ Đọc danh sách series/position trực tiếp từ Google Sheet
-  async function loadFilterOptions() {
-    setLoadingOptions(true);
-    try {
-      const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEETS_ID}/values/Sheet1!A2:J10000?key=${process.env.GOOGLE_API_KEY}`;
-      const response = await fetch(sheetsUrl);
-      const data = await response.json();
-      const rows = data.values || [];
-      
-      const seriesSet = new Set();
-      const positionSet = new Set();
-      
-      for (const row of rows) {
-        const series = row[0]?.trim();
-        const position = row[1]?.trim();
-        const hasQuestion = (row[2]?.trim()) || (row[3]?.trim()) || (row[4]?.trim());
-        
-        if (hasQuestion) {
-          if (series) seriesSet.add(series);
-          if (position) positionSet.add(position);
-        }
-      }
-      
-      setSeriesList(Array.from(seriesSet).sort());
-      setPositionList(Array.from(positionSet).sort());
-      console.log(`📋 Đã load ${seriesSet.size} series, ${positionSet.size} positions từ Google Sheet`);
-    } catch (err) { 
-      console.error('Lỗi load filter options:', err);
-    } finally { 
-      setLoadingOptions(false); 
-    }
-  }
-
-  // ✅ Đọc câu hỏi trực tiếp từ Google Sheet theo series và position
-  async function loadQuestionsFromSheet(series, position) {
-    const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.NEXT_PUBLIC_GOOGLE_SHEETS_ID}/values/Sheet1!A2:J10000?key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY}`;
-    const response = await fetch(sheetsUrl);
-    const data = await response.json();
-    const rows = data.values || [];
-    
-    // Lọc theo series và position
-    const filtered = rows.filter(row => {
-      const rowSeries = row[0]?.trim();
-      const rowPosition = row[1]?.trim();
-      return rowSeries === series && rowPosition === position;
-    });
-    
-    // Chuyển đổi thành câu hỏi
-    const questions = filtered.map((row, idx) => {
-      const diffValue = String(row[6] || '1').trim();
-      let difficulty = 'medium';
-      if (diffValue === '1') difficulty = 'easy';
-      else if (diffValue === '2') difficulty = 'medium';
-      else if (diffValue === '3') difficulty = 'hard';
-      
-      return {
-        id: `sheet_${Date.now()}_${idx}_${Math.random()}`,
-        series: row[0]?.trim() || '',
-        position: row[1]?.trim() || '',
-        question_en: row[2]?.trim() || '',
-        question_zh: row[3]?.trim() || '',
-        question_vi: row[4]?.trim() || '',
-        score: parseInt(row[5]) || 10,
-        difficulty: difficulty,
-        image_1: row[7]?.trim() || '',
-        image_2: row[8]?.trim() || '',
-        image_3: row[9]?.trim() || '',
-      };
-    });
-    
-    return questions;
-  }
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
@@ -128,6 +56,43 @@ export default function ExamPage() {
       }
     });
   }, []);
+
+  async function loadFilterOptions() {
+    setLoadingOptions(true);
+    try {
+      // Lấy danh sách series từ questions_cache
+      const { data: seriesData, error: seriesError } = await supabase
+        .from('questions_cache')
+        .select('series')
+        .eq('is_active', true)
+        .not('series', 'is', null)
+        .limit(10000);
+      
+      if (seriesError) throw seriesError;
+      
+      const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
+      console.log(`📋 Đã load ${uniqueSeries.length} series`);
+      setSeriesList(uniqueSeries.sort());
+  
+      // Lấy danh sách position từ questions_cache
+      const { data: positionData, error: positionError } = await supabase
+        .from('questions_cache')
+        .select('position')
+        .eq('is_active', true)
+        .not('position', 'is', null)
+        .limit(10000);
+      
+      if (positionError) throw positionError;
+      
+      const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
+      console.log(`📋 Đã load ${uniquePositions.length} positions`);
+      setPositionList(uniquePositions.sort());
+    } catch (err) { 
+      console.error(err); 
+    } finally { 
+      setLoadingOptions(false); 
+    }
+  }
 
   useEffect(() => {
     if (phase !== 'exam' || timeLeft <= 0) return;
@@ -146,32 +111,13 @@ export default function ExamPage() {
   }, [phase]);
 
   async function loadSession(s) {
-    // Lấy câu hỏi từ session_data nếu có (bài thi cũ)
-    if (s.questions_data) {
-      setQuestions(s.questions_data);
-    } else {
-      // Nếu không có, load từ database (cách cũ)
-      const { data: questions } = await supabase
-        .from('questions_cache')
-        .select('*')
-        .in('id', s.question_ids || []);
-      setQuestions(questions || []);
-    }
-    
-    const { data: answersData } = await supabase
-      .from('submissions')
-      .select('question_id, user_answer, image_urls')
-      .eq('session_id', s.id);
-    
-    const savedAnswers = {};
-    (answersData || []).forEach(a => {
-      savedAnswers[a.question_id] = { text: a.user_answer || '', images: a.image_urls || [] };
-    });
-    
-    setSession(s);
+    const { session: sess, questions: qs } = await getSessionWithQuestions(s.id);
+    const savedAnswers = await getAnswers(s.id);
+    setSession(sess);
+    setQuestions(qs);
     setAnswers(savedAnswers);
-    const elapsed = Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000);
-    const remaining = Math.max(0, s.duration_minutes * 60 - elapsed);
+    const elapsed = Math.floor((Date.now() - new Date(sess.started_at).getTime()) / 1000);
+    const remaining = Math.max(0, sess.duration_minutes * 60 - elapsed);
     setTimeLeft(remaining);
     setPhase('exam');
   }
@@ -183,38 +129,9 @@ export default function ExamPage() {
     }
     setPhase('loading');
     try {
-      // ✅ Đọc câu hỏi trực tiếp từ Google Sheet
-      const questionsData = await loadQuestionsFromSheet(selectedSeries, selectedPosition);
-      
-      if (!questionsData || questionsData.length === 0) {
-        alert('Không có câu hỏi nào cho series và position này');
-        setPhase('select');
-        return;
-      }
-      
-      // Tạo session mới với dữ liệu câu hỏi
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('exam_sessions')
-        .insert({
-          user_id: user.id,
-          series: selectedSeries,
-          position: selectedPosition,
-          questions_data: questionsData,  // ✅ Lưu toàn bộ câu hỏi vào session
-          duration_minutes: 30,
-          total_questions: questionsData.length,
-          status: 'in_progress',
-          started_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-      
-      if (sessionError) throw sessionError;
-      
-      setQuestions(questionsData);
-      setSession(sessionData);
-      setAnswers({});
-      setTimeLeft(30 * 60);
-      setPhase('exam');
+      await createExamSession({ durationMins: 30, series: selectedSeries, position: selectedPosition });
+      const active = await getActiveSession();
+      await loadSession(active);
     } catch (err) {
       alert(err.message);
       setPhase('select');
@@ -234,6 +151,7 @@ export default function ExamPage() {
     }
     
     debounceTimer.current = setTimeout(async () => {
+      console.log('💾 Saving to database after debounce...');
       try {
         const currentImages = answers[questionId]?.images || [];
         await saveAnswer(session.id, questionId, text, currentImages);
@@ -343,6 +261,7 @@ export default function ExamPage() {
     return difficulty;
   };
 
+  // Lấy danh sách ảnh câu hỏi (tối đa 3 ảnh)
   const questionImages = [q?.image_1, q?.image_2, q?.image_3].filter(url => url && url.trim());
 
   if (phase === 'loading') {
@@ -488,6 +407,7 @@ export default function ExamPage() {
                 <span className={styles.qScore}>🎯 {q.score} {t('points')}</span>
               </div>
               
+              {/* Hiển thị 3 ảnh câu hỏi dạng grid */}
               {questionImages.length > 0 && (
                 <div className={styles.questionImagesGrid}>
                   {questionImages.map((url, idx) => (
@@ -613,6 +533,7 @@ export default function ExamPage() {
         </div>
       </div>
 
+      {/* Modal xác nhận nộp bài */}
       <Modal
         isOpen={showSubmitModal}
         onClose={() => setShowSubmitModal(false)}
@@ -623,6 +544,7 @@ export default function ExamPage() {
         cancelText={t('cancel')}
       />
 
+      {/* Lightbox xem ảnh to */}
       {lightboxImage && (
         <div className={styles.lightbox} onClick={() => setLightboxImage(null)}>
           <div className={styles.lightboxContent}>
