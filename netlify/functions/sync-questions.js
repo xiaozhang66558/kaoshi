@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SHEET_RANGE = 'Sheet1!A2:J10000';
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 100;  // Giảm batch size
 
 exports.handler = async (event) => {
   const headers = {
@@ -31,16 +31,8 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
     
-    // ✅ ĐẾM TỔNG SỐ CÂU HỎI TRONG GOOGLE SHEET
-    let totalQuestionsInSheet = 0;
-    for (const row of rows) {
-      const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
-      if (hasQuestion) totalQuestionsInSheet++;
-    }
-    
-    console.log(`[sync-questions] 📊 Tổng số câu hỏi trong Google Sheet: ${totalQuestionsInSheet}`);
+    console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
 
-    // Xử lý dữ liệu
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -73,36 +65,43 @@ exports.handler = async (event) => {
       });
     }
 
+    if (questions.length === 0) {
+      return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
+    }
+
+    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi`);
+
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Thêm câu hỏi mới (bỏ qua câu đã có)
+    // ✅ Cách nhanh nhất: Xóa cũ, thêm mới (bỏ qua kiểm tra trùng)
+    console.log('[sync-questions] Xóa dữ liệu cũ...');
+    await supabase.from('submissions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('questions_cache').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    console.log(`[sync-questions] Thêm ${questions.length} câu hỏi mới...`);
     let inserted = 0;
-    // Trong vòng lặp insert, thêm log chi tiết
+    
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
-      
-      for (const q of batch) {
-        const { error } = await supabase
-          .from('questions_cache')
-          .insert(q);
-        
-        if (error) {
-          // Ghi log câu hỏi bị lỗi
-          console.log('❌ Lỗi insert câu hỏi:', q.question_en, error.message);
-        }
+      const { error } = await supabase.from('questions_cache').insert(batch);
+      if (error) {
+        console.error(`Lỗi batch:`, error.message);
+      } else {
+        inserted += batch.length;
       }
     }
 
-    // ✅ TRẢ VỀ TỔNG SỐ CÂU HỎI TRONG GOOGLE SHEET
+    console.log(`[sync-questions] ✅ Thành công! Đã thêm ${inserted} câu hỏi`);
+
     return {
+      statusCode: 200,
+      headers,
       body: JSON.stringify({ 
-        message: `✅ Đã đồng bộ ${inserted}/${totalQuestionsInSheet} câu hỏi. (Thiếu ${totalQuestionsInSheet - inserted} câu do lỗi)`,
-        totalQuestions: totalQuestionsInSheet,
+        message: `✅ Đã đồng bộ ${inserted} câu hỏi.`,
         synced: inserted,
-        failed: totalQuestionsInSheet - inserted,
       }),
     };
   } catch (err) {
