@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SHEET_RANGE = 'Sheet1!A2:J10000';
-const BATCH_SIZE = 100; // Chỉ khai báo 1 lần
+const BATCH_SIZE = 100;
 
 exports.handler = async (event) => {
   const headers = {
@@ -79,66 +79,33 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // ✅ CÁCH 1: THỬ UPSERT TRƯỚC (NẾU CÓ UNIQUE CONSTRAINT)
-    console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi...`);
-    let upserted = 0;
+    // ✅ CHỈ INSERT, KHÔNG XÓA (tránh lỗi khóa ngoại)
+    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi...`);
+    let inserted = 0;
     
-    try {
-      for (let i = 0; i < questions.length; i += BATCH_SIZE) {
-        const batch = questions.slice(i, i + BATCH_SIZE);
-        
-        const { error: upsertError } = await supabase
-          .from('questions_cache')
-          .upsert(batch, { 
-            onConflict: 'question_en',
-            ignoreDuplicates: false 
-          });
-        
-        if (upsertError) {
-          console.error(`Lỗi batch:`, upsertError.message);
-          throw upsertError;
-        } else {
-          upserted += batch.length;
-          console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}: Đã đồng bộ ${batch.length} câu hỏi`);
-        }
-      }
-    } catch (upsertErr) {
-      // ✅ CÁCH 2: NẾU UPSERT LỖI (do chưa có UNIQUE constraint), CHUYỂN SANG XÓA RỒI INSERT
-      console.log('[sync-questions] UPSERT thất bại, chuyển sang xóa rồi insert...');
+    for (let i = 0; i < questions.length; i += BATCH_SIZE) {
+      const batch = questions.slice(i, i + BATCH_SIZE);
       
-      // Xóa hết dữ liệu cũ
-      const { error: deleteError } = await supabase
+      const { error: insertError } = await supabase
         .from('questions_cache')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
+        .insert(batch);
       
-      if (deleteError) throw deleteError;
-      
-      // Insert dữ liệu mới
-      upserted = 0;
-      for (let i = 0; i < questions.length; i += BATCH_SIZE) {
-        const batch = questions.slice(i, i + BATCH_SIZE);
-        const { error: insertError } = await supabase
-          .from('questions_cache')
-          .insert(batch);
-        
-        if (insertError) {
-          console.error(`Lỗi insert batch:`, insertError.message);
-        } else {
-          upserted += batch.length;
-          console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}: Đã thêm ${batch.length} câu hỏi`);
-        }
+      if (insertError) {
+        console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, insertError.message);
+      } else {
+        inserted += batch.length;
+        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã thêm ${batch.length} câu hỏi`);
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${upserted} câu hỏi`);
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
     
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: upserted,
+        synced: inserted,
       }),
     };
   } catch (err) {
