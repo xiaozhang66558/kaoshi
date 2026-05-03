@@ -32,19 +32,29 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
     
-    console.log(`[sync-questions] 📊 Tổng số dòng trong Google Sheet: ${rows.length}`);
+    // Đếm số dòng có nội dung câu hỏi
+    let totalQuestionsInSheet = 0;
+    let invalidRows = 0;
+    
+    for (const row of rows) {
+      const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
+      if (hasQuestion) {
+        totalQuestionsInSheet++;
+      } else {
+        invalidRows++;
+      }
+    }
+    
+    console.log(`[sync-questions] 📊 Tổng số dòng trong Sheet: ${rows.length}`);
+    console.log(`[sync-questions] 📊 Số câu hỏi hợp lệ trong Sheet: ${totalQuestionsInSheet}`);
+    console.log(`[sync-questions] 📊 Số dòng không hợp lệ: ${invalidRows}`);
 
     // Xử lý dữ liệu
     const questions = [];
-    let invalidRows = 0;
-    
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
-      if (!hasQuestion) {
-        invalidRows++;
-        continue;
-      }
+      if (!hasQuestion) continue;
       
       const diffValue = String(row[6] || '1').trim();
       let difficulty = 'medium';
@@ -53,6 +63,7 @@ exports.handler = async (event) => {
       else if (diffValue === '3') difficulty = 'hard';
       
       questions.push({
+        sheet_row_id: `row_${i}_${Date.now()}_${i}`,
         series:       String(row[0] || '').trim(),
         position:     String(row[1] || '').trim(),
         question_en:  String(row[2] || '').trim(),
@@ -72,12 +83,9 @@ exports.handler = async (event) => {
       });
     }
 
-    console.log(`[sync-questions] 📊 Câu hỏi hợp lệ: ${questions.length}`);
-    console.log(`[sync-questions] 📊 Dòng không hợp lệ: ${invalidRows}`);
-
     if (questions.length === 0) {
       return { statusCode: 200, headers, body: JSON.stringify({ 
-        message: 'Không có câu hỏi hợp lệ', 
+        message: 'Sync thành công', 
         totalRows: rows.length,
         validQuestions: 0,
         synced: 0 
@@ -89,39 +97,34 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // ✅ UPSERT - KHÔNG XÓA, chỉ cập nhật hoặc thêm mới
-    console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi (UPSERT)...`);
-    let upserted = 0;
+    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi...`);
+    let inserted = 0;
     
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
-      
-      const { error: upsertError } = await supabase
+      const { error: insertError } = await supabase
         .from('questions_cache')
-        .upsert(batch, { 
-          onConflict: 'question_en',
-          ignoreDuplicates: false 
-        });
+        .insert(batch);
       
-      if (upsertError) {
-        console.error(`❌ Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, upsertError.message);
+      if (insertError) {
+        console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, insertError.message);
       } else {
-        upserted += batch.length;
-        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã đồng bộ ${batch.length} câu hỏi`);
+        inserted += batch.length;
+        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã thêm ${batch.length} câu hỏi`);
       }
     }
 
-    console.log(`[sync-questions] 🎉 HOÀN TẤT!`);
-    console.log(`[sync-questions] 📊 Đã đồng bộ: ${upserted} câu hỏi (cập nhật hoặc thêm mới)`);
+    console.log(`[sync-questions] 🎉 Hoàn tất!`);
 
+    // Trả về response với thông tin chi tiết
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        message: 'Sync thành công', 
+        message: `Sync thành công - Google Sheet có ${totalQuestionsInSheet} câu hỏi`, 
         totalRows: rows.length,
-        validQuestions: questions.length,
-        synced: upserted,
+        validQuestions: totalQuestionsInSheet,
+        synced: inserted,
       }),
     };
   } catch (err) {
