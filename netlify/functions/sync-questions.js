@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SHEET_RANGE = 'Sheet1!A2:J10000';
-const BATCH_SIZE = 100;  // Giảm batch size
+const BATCH_SIZE = 100;
 
 exports.handler = async (event) => {
   const headers = {
@@ -76,32 +76,36 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // ✅ Cách nhanh nhất: Xóa cũ, thêm mới (bỏ qua kiểm tra trùng)
-    console.log('[sync-questions] Xóa dữ liệu cũ...');
-    await supabase.from('submissions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('questions_cache').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    
-    console.log(`[sync-questions] Thêm ${questions.length} câu hỏi mới...`);
-    let inserted = 0;
+    // ✅ CHỈ UPSERT - KHÔNG XÓA GÌ CẢ
+    console.log(`[sync-questions] Đang upsert ${questions.length} câu hỏi...`);
+    let upserted = 0;
     
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
-      const { error } = await supabase.from('questions_cache').insert(batch);
-      if (error) {
-        console.error(`Lỗi batch:`, error.message);
+      
+      const { error: upsertError } = await supabase
+        .from('questions_cache')
+        .upsert(batch, { 
+          onConflict: 'question_en',
+          ignoreDuplicates: false 
+        });
+      
+      if (upsertError) {
+        console.error(`Lỗi batch:`, upsertError.message);
       } else {
-        inserted += batch.length;
+        upserted += batch.length;
+        console.log(`✅ Đã xử lý ${upserted}/${questions.length} câu hỏi`);
       }
     }
 
-    console.log(`[sync-questions] ✅ Thành công! Đã thêm ${inserted} câu hỏi`);
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã upsert ${upserted} câu hỏi`);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        message: `✅ Đã đồng bộ ${inserted} câu hỏi.`,
-        synced: inserted,
+        message: `✅ Đã đồng bộ ${upserted} câu hỏi.`,
+        synced: upserted,
       }),
     };
   } catch (err) {
