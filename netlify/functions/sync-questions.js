@@ -98,12 +98,11 @@ exports.handler = async (event) => {
 
     // ✅ TRẢ VỀ TỔNG SỐ CÂU HỎI TRONG GOOGLE SHEET
     return {
-      statusCode: 200,
-      headers,
       body: JSON.stringify({ 
-        message: `✅ Google Sheet có ${totalQuestionsInSheet} câu hỏi.`,
+        message: `✅ Đã đồng bộ ${inserted}/${totalQuestionsInSheet} câu hỏi. (Thiếu ${totalQuestionsInSheet - inserted} câu do lỗi)`,
         totalQuestions: totalQuestionsInSheet,
         synced: inserted,
+        failed: totalQuestionsInSheet - inserted,
       }),
     };
   } catch (err) {
