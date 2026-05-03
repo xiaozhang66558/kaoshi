@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SHEET_RANGE = 'Sheet1!A2:J10000';
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 100; // Chỉ khai báo 1 lần
 
 exports.handler = async (event) => {
   const headers = {
@@ -38,7 +38,6 @@ exports.handler = async (event) => {
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      // Kiểm tra có ít nhất 1 ngôn ngữ
       const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
       if (!hasQuestion) continue;
       
@@ -80,39 +79,66 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Thêm dữ liệu theo BATCH
-// Đồng bộ câu hỏi bằng UPSERT theo batch
-console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi...`);
-let upserted = 0;
-const BATCH_SIZE = 100; // Xử lý 100 câu 1 lần
-
-for (let i = 0; i < questions.length; i += BATCH_SIZE) {
-  const batch = questions.slice(i, i + BATCH_SIZE);
-  
-  const { error: upsertError } = await supabase
-    .from('questions_cache')
-    .upsert(batch, { 
-      onConflict: 'question_en',  // Dựa vào question_en để tránh trùng
-      ignoreDuplicates: false 
-    });
-  
-  if (upsertError) {
-    console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, upsertError.message);
-  } else {
-    upserted += batch.length;
-    console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}: Đã đồng bộ ${batch.length} câu hỏi`);
-  }
-}
-
-console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${upserted} câu hỏi`);
+    // ✅ CÁCH 1: THỬ UPSERT TRƯỚC (NẾU CÓ UNIQUE CONSTRAINT)
+    console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi...`);
+    let upserted = 0;
     
-    // ✅ Quan trọng: Phải trả về upserted, không phải inserted
+    try {
+      for (let i = 0; i < questions.length; i += BATCH_SIZE) {
+        const batch = questions.slice(i, i + BATCH_SIZE);
+        
+        const { error: upsertError } = await supabase
+          .from('questions_cache')
+          .upsert(batch, { 
+            onConflict: 'question_en',
+            ignoreDuplicates: false 
+          });
+        
+        if (upsertError) {
+          console.error(`Lỗi batch:`, upsertError.message);
+          throw upsertError;
+        } else {
+          upserted += batch.length;
+          console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}: Đã đồng bộ ${batch.length} câu hỏi`);
+        }
+      }
+    } catch (upsertErr) {
+      // ✅ CÁCH 2: NẾU UPSERT LỖI (do chưa có UNIQUE constraint), CHUYỂN SANG XÓA RỒI INSERT
+      console.log('[sync-questions] UPSERT thất bại, chuyển sang xóa rồi insert...');
+      
+      // Xóa hết dữ liệu cũ
+      const { error: deleteError } = await supabase
+        .from('questions_cache')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      if (deleteError) throw deleteError;
+      
+      // Insert dữ liệu mới
+      upserted = 0;
+      for (let i = 0; i < questions.length; i += BATCH_SIZE) {
+        const batch = questions.slice(i, i + BATCH_SIZE);
+        const { error: insertError } = await supabase
+          .from('questions_cache')
+          .insert(batch);
+        
+        if (insertError) {
+          console.error(`Lỗi insert batch:`, insertError.message);
+        } else {
+          upserted += batch.length;
+          console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}: Đã thêm ${batch.length} câu hỏi`);
+        }
+      }
+    }
+
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${upserted} câu hỏi`);
+    
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: upserted,  // ← Đổi từ inserted thành upserted
+        synced: upserted,
       }),
     };
   } catch (err) {
