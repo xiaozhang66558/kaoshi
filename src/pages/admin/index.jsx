@@ -351,7 +351,14 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      alert(t('sync_success').replace('{count}', data.synced));
+      
+      // ✅ Hiển thị message từ server (nếu có) hoặc dùng translation
+      if (data.message) {
+        alert(data.message);
+      } else {
+        alert(t('sync_success').replace('{count}', data.synced || 0));
+      }
+      
       fetchData();
     } catch (err) {
       alert(t('sync_failed') + err.message);
