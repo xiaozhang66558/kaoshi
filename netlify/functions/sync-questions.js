@@ -71,65 +71,43 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
     }
 
-    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi hợp lệ`);
+    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi`);
 
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // 3. Xóa TOÀN BỘ dữ liệu cũ
-    console.log('[sync-questions] Đang xóa dữ liệu cũ...');
-    
-    // Xóa submissions trước (để tránh lỗi khóa ngoại)
-    const { error: deleteSubError } = await supabase
-      .from('submissions')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-    
-    if (deleteSubError) {
-      console.log('Lưu ý khi xóa submissions:', deleteSubError.message);
-    }
-    
-    // Xóa questions_cache
-    const { error: deleteQError } = await supabase
-      .from('questions_cache')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-    
-    if (deleteQError) {
-      throw deleteQError;
-    }
-    
-    console.log('[sync-questions] ✅ Đã xóa dữ liệu cũ');
-
-    // 4. Thêm dữ liệu mới theo BATCH
-    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi mới...`);
-    let inserted = 0;
+    // 3. UPSERT: Cập nhật nếu đã tồn tại (theo question_en), thêm mới nếu chưa có
+    console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi (UPSERT)...`);
+    let upserted = 0;
     
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
       
-      const { error: insertError } = await supabase
+      const { error: upsertError } = await supabase
         .from('questions_cache')
-        .insert(batch);
+        .upsert(batch, { 
+          onConflict: 'question_en',  // Dùng question_en để kiểm tra trùng
+          ignoreDuplicates: false 
+        });
       
-      if (insertError) {
-        console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, insertError.message);
+      if (upsertError) {
+        console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, upsertError.message);
       } else {
-        inserted += batch.length;
-        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã thêm ${batch.length} câu hỏi`);
+        upserted += batch.length;
+        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã đồng bộ ${batch.length} câu hỏi`);
       }
     }
 
-    console.log(`[sync-questions] 🎉 HOÀN TẤT! Đã xóa cũ và thêm mới ${inserted} câu hỏi`);
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${upserted} câu hỏi`);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: inserted,
+        synced: upserted,
       }),
     };
   } catch (err) {
