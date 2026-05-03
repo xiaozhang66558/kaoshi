@@ -60,7 +60,7 @@ export default function ExamPage() {
   async function loadFilterOptions() {
     setLoadingOptions(true);
     try {
-      // ======= LẤY TẤT CẢ SERIES (phân trang) =======
+      // ===== LẤY SERIES =====
       let allSeries = [];
       let page = 0;
       const pageSize = 1000;
@@ -81,13 +81,15 @@ export default function ExamPage() {
           page++;
         }
         if (!data || data.length < pageSize) hasMore = false;
+        
+        console.log(`📦 Đã lấy ${allSeries.length} dòng series`);
       }
       
       const uniqueSeries = [...new Set(allSeries.map(item => item.series).filter(Boolean))];
-      console.log(`📋 Đã load ${uniqueSeries.length} series (từ ${allSeries.length} dòng)`);
+      console.log(`🎯 Tổng số series: ${uniqueSeries.length}`);
       setSeriesList(uniqueSeries.sort());
   
-      // ======= LẤY TẤT CẢ POSITIONS (phân trang) =======
+      // ===== LẤY POSITION =====
       let allPositions = [];
       page = 0;
       hasMore = true;
@@ -107,10 +109,12 @@ export default function ExamPage() {
           page++;
         }
         if (!data || data.length < pageSize) hasMore = false;
+        
+        console.log(`📦 Đã lấy ${allPositions.length} dòng position`);
       }
       
       const uniquePositions = [...new Set(allPositions.map(item => item.position).filter(Boolean))];
-      console.log(`📋 Đã load ${uniquePositions.length} positions (từ ${allPositions.length} dòng)`);
+      console.log(`🎯 Tổng số positions: ${uniquePositions.length}`);
       setPositionList(uniquePositions.sort());
     } catch (err) { 
       console.error('Lỗi load filter options:', err); 
