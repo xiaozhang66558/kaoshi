@@ -21,7 +21,6 @@ exports.handler = async (event) => {
   try {
     console.log('[sync-questions] Bắt đầu đồng bộ...');
     
-    // Lấy dữ liệu từ Google Sheet
     const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEETS_ID}/values/${encodeURIComponent(SHEET_RANGE)}?key=${process.env.GOOGLE_API_KEY}`;
     const sheetsRes = await fetch(sheetsUrl);
     
@@ -32,8 +31,15 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
     
-    console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
-
+    // Đếm số câu hỏi hợp lệ trong Google Sheet
+    let totalQuestionsInSheet = 0;
+    for (const row of rows) {
+      const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
+      if (hasQuestion) totalQuestionsInSheet++;
+    }
+    
+    console.log(`[sync-questions] Tổng câu hỏi trong Google Sheet: ${totalQuestionsInSheet}`);
+    
     // Xử lý dữ liệu
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
@@ -67,42 +73,33 @@ exports.handler = async (event) => {
       });
     }
 
-    if (questions.length === 0) {
-      return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
-    }
-
-    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi`);
-
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
     // Thêm dữ liệu theo BATCH
-    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi...`);
     let inserted = 0;
-    
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
       const { error: insertError } = await supabase
         .from('questions_cache')
         .insert(batch);
       
-      if (insertError) {
-        console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, insertError.message);
-      } else {
+      if (insertError && insertError.code !== '23505') {
+        console.error(`Lỗi:`, insertError.message);
+      } else if (!insertError) {
         inserted += batch.length;
-        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã thêm ${batch.length} câu hỏi`);
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
-
+    // ✅ TRẢ VỀ TỔNG SỐ CÂU HỎI TRONG GOOGLE SHEET
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        message: 'Sync thành công', 
+        message: `✅ Đồng bộ thành công! Google Sheet có ${totalQuestionsInSheet} câu hỏi.`,
+        totalQuestions: totalQuestionsInSheet,
         synced: inserted,
       }),
     };
