@@ -31,8 +31,16 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
     
-    console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
+    // ✅ ĐẾM TỔNG SỐ CÂU HỎI TRONG GOOGLE SHEET
+    let totalSheetQuestions = 0;
+    for (const row of rows) {
+      const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
+      if (hasQuestion) totalSheetQuestions++;
+    }
+    
+    console.log(`[sync-questions] 📊 Tổng số câu hỏi trong Google Sheet: ${totalSheetQuestions}`);
 
+    // Xử lý dữ liệu
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -65,46 +73,28 @@ exports.handler = async (event) => {
       });
     }
 
-    if (questions.length === 0) {
-      return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
-    }
-
-    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi`);
-
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // ✅ CHỈ UPSERT - KHÔNG XÓA GÌ CẢ
-    console.log(`[sync-questions] Đang upsert ${questions.length} câu hỏi...`);
+    // Upsert dữ liệu
     let upserted = 0;
-    
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
-      
-      const { error: upsertError } = await supabase
+      const { error } = await supabase
         .from('questions_cache')
-        .upsert(batch, { 
-          onConflict: 'question_en',
-          ignoreDuplicates: false 
-        });
-      
-      if (upsertError) {
-        console.error(`Lỗi batch:`, upsertError.message);
-      } else {
-        upserted += batch.length;
-        console.log(`✅ Đã xử lý ${upserted}/${questions.length} câu hỏi`);
-      }
+        .upsert(batch, { onConflict: 'question_en', ignoreDuplicates: false });
+      if (!error) upserted += batch.length;
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã upsert ${upserted} câu hỏi`);
-
+    // ✅ TRẢ VỀ TỔNG SỐ CÂU HỎI TRONG GOOGLE SHEET
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        message: `✅ Đã đồng bộ ${upserted} câu hỏi.`,
+        message: `✅ Google Sheet có ${totalSheetQuestions} câu hỏi.`,
+        totalQuestions: totalSheetQuestions,
         synced: upserted,
       }),
     };
