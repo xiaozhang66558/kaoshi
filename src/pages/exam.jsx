@@ -44,7 +44,7 @@ export default function ExamPage() {
   async function loadFilterOptions() {
     setLoadingOptions(true);
     try {
-      const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.NEXT_PUBLIC_GOOGLE_SHEETS_ID}/values/Sheet1!A2:J10000?key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY}`;
+      const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEETS_ID}/values/Sheet1!A2:J10000?key=${process.env.GOOGLE_API_KEY}`;
       const response = await fetch(sheetsUrl);
       const data = await response.json();
       const rows = data.values || [];
