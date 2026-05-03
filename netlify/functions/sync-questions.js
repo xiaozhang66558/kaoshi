@@ -99,7 +99,7 @@ exports.handler = async (event) => {
       const { error: upsertError } = await supabase
         .from('questions_cache')
         .upsert(batch, { 
-          onConflict: 'question_en',  // Dựa vào question_en để tránh trùng
+          onConflict: 'question_en',
           ignoreDuplicates: false 
         });
       
