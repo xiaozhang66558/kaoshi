@@ -31,7 +31,6 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
     
-    // ĐẾM TỔNG SỐ CÂU HỎI TRONG GOOGLE SHEET
     let totalSheetQuestions = 0;
     for (const row of rows) {
       const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
@@ -40,7 +39,6 @@ exports.handler = async (event) => {
     
     console.log(`[sync-questions] 📊 Tổng số câu hỏi trong Google Sheet: ${totalSheetQuestions}`);
 
-    // Xử lý dữ liệu
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -78,8 +76,9 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // ✅ CHỈ INSERT, KHÔNG UPSERT, KHÔNG KIỂM TRA TRÙNG
+    console.log(`[sync-questions] 📝 Đang thêm ${questions.length} câu hỏi...`);
     let inserted = 0;
+    
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
       const { error } = await supabase
@@ -90,18 +89,19 @@ exports.handler = async (event) => {
         console.error(`Lỗi insert batch:`, error.message);
       } else {
         inserted += batch.length;
-        console.log(`✅ Đã insert ${inserted}/${questions.length} câu hỏi`);
+        console.log(`✅ Đã thêm ${inserted}/${questions.length} câu hỏi`);
       }
     }
 
-    // TRẢ VỀ TỔNG SỐ CÂU HỎI TRONG GOOGLE SHEET
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        message: `✅ Google Sheet có ${totalSheetQuestions} câu hỏi.`,
-        totalQuestions: totalSheetQuestions,
-        synced: inserted,
+        message: `✅ Đã thêm ${inserted} câu hỏi từ Google Sheet.`,
+        totalInSheet: totalSheetQuestions,
+        inserted: inserted,
       }),
     };
   } catch (err) {
