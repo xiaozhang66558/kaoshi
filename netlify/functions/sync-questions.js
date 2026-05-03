@@ -31,16 +31,8 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
     
-    // Đếm số câu hỏi hợp lệ trong Google Sheet
-    let totalQuestionsInSheet = 0;
-    for (const row of rows) {
-      const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
-      if (hasQuestion) totalQuestionsInSheet++;
-    }
-    
-    console.log(`[sync-questions] Tổng câu hỏi trong Google Sheet: ${totalQuestionsInSheet}`);
-    
-    // Xử lý dữ liệu
+    console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
+
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -73,12 +65,30 @@ exports.handler = async (event) => {
       });
     }
 
+    if (questions.length === 0) {
+      return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
+    }
+
+    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi`);
+
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Thêm dữ liệu theo BATCH
+    // ✅ XÓA HẾT DỮ LIỆU CŨ trước khi thêm mới
+    console.log('[sync-questions] Đang xóa dữ liệu cũ...');
+    
+    const { error: deleteError } = await supabase
+      .from('questions_cache')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    if (deleteError) throw deleteError;
+    
+    console.log('[sync-questions] ✅ Đã xóa dữ liệu cũ');
+
+    // Thêm dữ liệu mới
     let inserted = 0;
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
@@ -86,20 +96,21 @@ exports.handler = async (event) => {
         .from('questions_cache')
         .insert(batch);
       
-      if (insertError && insertError.code !== '23505') {
-        console.error(`Lỗi:`, insertError.message);
-      } else if (!insertError) {
+      if (insertError) {
+        console.error(`Lỗi batch:`, insertError.message);
+      } else {
         inserted += batch.length;
+        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}: Đã thêm ${batch.length} câu hỏi`);
       }
     }
 
-    // ✅ TRẢ VỀ TỔNG SỐ CÂU HỎI TRONG GOOGLE SHEET
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
+
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        message: `✅ Đồng bộ thành công! Google Sheet có ${totalQuestionsInSheet} câu hỏi.`,
-        totalQuestions: totalQuestionsInSheet,
+        message: `Sync thành công! Đã thêm ${inserted} câu hỏi mới.`, 
         synced: inserted,
       }),
     };
