@@ -21,7 +21,7 @@ exports.handler = async (event) => {
   try {
     console.log('[sync-questions] Bắt đầu đồng bộ...');
     
-    // 1. Lấy dữ liệu từ Google Sheet
+    // Lấy dữ liệu từ Google Sheet
     const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEETS_ID}/values/${encodeURIComponent(SHEET_RANGE)}?key=${process.env.GOOGLE_API_KEY}`;
     const sheetsRes = await fetch(sheetsUrl);
     
@@ -34,7 +34,7 @@ exports.handler = async (event) => {
     
     console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
 
-    // 2. Xử lý dữ liệu
+    // Xử lý dữ liệu
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -78,25 +78,33 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // 3. UPSERT: Cập nhật nếu đã tồn tại (theo question_en), thêm mới nếu chưa có
-    console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi (UPSERT)...`);
+    // ✅ CÁCH AN TOÀN: Kiểm tra từng câu hỏi, cập nhật hoặc thêm mới
+    console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi...`);
     let upserted = 0;
-    
-    for (let i = 0; i < questions.length; i += BATCH_SIZE) {
-      const batch = questions.slice(i, i + BATCH_SIZE);
-      
-      const { error: upsertError } = await supabase
+
+    for (const question of questions) {
+      // Tìm câu hỏi theo nội dung tiếng Anh
+      const { data: existing } = await supabase
         .from('questions_cache')
-        .upsert(batch, { 
-          onConflict: 'question_en',  // Dùng question_en để kiểm tra trùng
-          ignoreDuplicates: false 
-        });
+        .select('id')
+        .eq('question_en', question.question_en)
+        .maybeSingle();
       
-      if (upsertError) {
-        console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, upsertError.message);
+      if (existing) {
+        // Cập nhật câu hỏi hiện có (giữ nguyên ID)
+        const { error: updateError } = await supabase
+          .from('questions_cache')
+          .update(question)
+          .eq('id', existing.id);
+        
+        if (!updateError) upserted++;
       } else {
-        upserted += batch.length;
-        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã đồng bộ ${batch.length} câu hỏi`);
+        // Thêm câu hỏi mới
+        const { error: insertError } = await supabase
+          .from('questions_cache')
+          .insert(question);
+        
+        if (!insertError) upserted++;
       }
     }
 
