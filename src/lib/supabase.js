@@ -130,7 +130,7 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   const existing = await getActiveSession();
   if (existing) throw new Error('Bạn đang có bài thi chưa hoàn thành');
 
-  let query = supabase.from('questions_cache').select('*').eq('is_active', true);  // ✅ Lấy tất cả trường
+  let query = supabase.from('questions_cache').select('*').eq('is_active', true);  // ✅ Lấy full data
   if (series) query = query.eq('series', series);
   if (position) query = query.eq('position', position);
   
@@ -140,22 +140,25 @@ export async function createExamSession({ durationMins = 30, series = null, posi
     throw new Error('Không có câu hỏi nào trong ngân hàng');
   }
   
-  // ✅ Loại bỏ câu hỏi trùng dựa trên nội dung (không phân biệt ID)
+  // ✅ BƯỚC 1: Loại bỏ câu hỏi trùng nội dung ngay từ đầu (quan trọng nhất)
   const uniqueByContent = new Map();
   for (const q of allQuestions) {
-    const contentKey = `${q.question_en}_${q.question_zh}_${q.question_vi}`;  // Tạo key từ nội dung
+    // Tạo key từ nội dung 3 ngôn ngữ
+    const contentKey = `${q.question_en}|${q.question_zh}|${q.question_vi}`;
     if (!uniqueByContent.has(contentKey)) {
       uniqueByContent.set(contentKey, q);
+    } else {
+      console.log(`⚠️ Bỏ qua câu hỏi trùng nội dung: ${q.question_vi?.substring(0, 50)}...`);
     }
   }
   
-  const uniqueQuestionsList = Array.from(uniqueByContent.values());
-  console.log(`📊 Tổng câu hỏi: ${allQuestions.length}, Sau khi loại trùng nội dung: ${uniqueQuestionsList.length}`);
+  const cleanQuestions = Array.from(uniqueByContent.values());
+  console.log(`📊 Loại bỏ trùng nội dung: ${allQuestions.length} → ${cleanQuestions.length} câu hỏi`);
   
   const questionsByScore = {
-    5: uniqueQuestionsList.filter(q => q.score === 5),
-    10: uniqueQuestionsList.filter(q => q.score === 10),
-    20: uniqueQuestionsList.filter(q => q.score === 20)
+    5: cleanQuestions.filter(q => q.score === 5),
+    10: cleanQuestions.filter(q => q.score === 10),
+    20: cleanQuestions.filter(q => q.score === 20)
   };
   
   const targetCounts = {
@@ -184,19 +187,21 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   const selected10 = getRandomDistinctItems(questionsByScore[10], targetCounts[10]);
   const selected20 = getRandomDistinctItems(questionsByScore[20], targetCounts[20]);
   
-  // ✅ Loại bỏ trùng lần nữa khi gộp (dùng nội dung, không dùng ID)
+  // ✅ BƯỚC 2: Loại bỏ trùng lần nữa khi gộp các nhóm
   const finalMap = new Map();
   [...selected5, ...selected10, ...selected20].forEach(q => {
-    const contentKey = `${q.question_en}_${q.question_zh}_${q.question_vi}`;
+    const contentKey = `${q.question_en}|${q.question_zh}|${q.question_vi}`;
     if (!finalMap.has(contentKey)) {
       finalMap.set(contentKey, q);
+    } else {
+      console.log(`⚠️ Loại bỏ trùng khi gộp: ${q.question_vi?.substring(0, 50)}...`);
     }
   });
   
   const uniqueQuestions = Array.from(finalMap.values());
   
   if (uniqueQuestions.length !== selected5.length + selected10.length + selected20.length) {
-    console.warn(`⚠️ Đã loại bỏ ${(selected5.length + selected10.length + selected20.length) - uniqueQuestions.length} câu hỏi trùng nội dung`);
+    console.warn(`⚠️ Đã loại bỏ ${(selected5.length + selected10.length + selected20.length) - uniqueQuestions.length} câu hỏi trùng khi gộp`);
   }
   
   // Xáo trộn lần cuối
@@ -207,10 +212,8 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   
   const selectedIds = uniqueQuestions.map(q => q.id);
   const totalQuestions = selectedIds.length;
-  const totalScore = uniqueQuestions.reduce((sum, q) => sum + q.score, 0);
   
-  console.log(`✅ Tạo đề thi: ${totalQuestions} câu, tổng điểm ${totalScore}`);
-  console.log(`📋 Số câu dự kiến: ${targetCounts[5] + targetCounts[10] + targetCounts[20]}, Thực tế: ${totalQuestions}`);
+  console.log(`✅ Tạo đề thi: ${totalQuestions} câu, yêu cầu: ${targetCounts[5] + targetCounts[10] + targetCounts[20]}`);
   
   const { data: session, error: insertErr } = await supabase
     .from('exam_sessions')
