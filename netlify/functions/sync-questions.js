@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SHEET_RANGE = 'Sheet1!A2:J10000';
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 200;
 
 exports.handler = async (event) => {
   const headers = {
@@ -21,7 +21,7 @@ exports.handler = async (event) => {
   try {
     console.log('[sync-questions] Bắt đầu đồng bộ...');
     
-    // Lấy dữ liệu từ Google Sheet
+    // 1. Lấy dữ liệu từ Google Sheet
     const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEETS_ID}/values/${encodeURIComponent(SHEET_RANGE)}?key=${process.env.GOOGLE_API_KEY}`;
     const sheetsRes = await fetch(sheetsUrl);
     
@@ -34,7 +34,7 @@ exports.handler = async (event) => {
     
     console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
 
-    // Xử lý dữ liệu
+    // 2. Xử lý dữ liệu
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -48,7 +48,6 @@ exports.handler = async (event) => {
       else if (diffValue === '3') difficulty = 'hard';
       
       questions.push({
-        sheet_row_id: `row_${i}_${Date.now()}_${i}`,
         series:       String(row[0] || '').trim(),
         position:     String(row[1] || '').trim(),
         question_en:  String(row[2] || '').trim(),
@@ -72,15 +71,40 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
     }
 
-    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi`);
+    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi hợp lệ`);
 
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // ✅ CHỈ INSERT, KHÔNG XÓA (tránh lỗi khóa ngoại)
-    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi...`);
+    // 3. Xóa TOÀN BỘ dữ liệu cũ
+    console.log('[sync-questions] Đang xóa dữ liệu cũ...');
+    
+    // Xóa submissions trước (để tránh lỗi khóa ngoại)
+    const { error: deleteSubError } = await supabase
+      .from('submissions')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    if (deleteSubError) {
+      console.log('Lưu ý khi xóa submissions:', deleteSubError.message);
+    }
+    
+    // Xóa questions_cache
+    const { error: deleteQError } = await supabase
+      .from('questions_cache')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    if (deleteQError) {
+      throw deleteQError;
+    }
+    
+    console.log('[sync-questions] ✅ Đã xóa dữ liệu cũ');
+
+    // 4. Thêm dữ liệu mới theo BATCH
+    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi mới...`);
     let inserted = 0;
     
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
@@ -98,8 +122,8 @@ exports.handler = async (event) => {
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
-    
+    console.log(`[sync-questions] 🎉 HOÀN TẤT! Đã xóa cũ và thêm mới ${inserted} câu hỏi`);
+
     return {
       statusCode: 200,
       headers,
