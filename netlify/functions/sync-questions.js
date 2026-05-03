@@ -80,16 +80,19 @@ exports.handler = async (event) => {
 
     // Thêm câu hỏi mới (bỏ qua câu đã có)
     let inserted = 0;
+    // Trong vòng lặp insert, thêm log chi tiết
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
-      const { error: insertError } = await supabase
-        .from('questions_cache')
-        .insert(batch);
       
-      if (insertError && insertError.code !== '23505') {
-        console.error(`Lỗi:`, insertError.message);
-      } else if (!insertError) {
-        inserted += batch.length;
+      for (const q of batch) {
+        const { error } = await supabase
+          .from('questions_cache')
+          .insert(q);
+        
+        if (error) {
+          // Ghi log câu hỏi bị lỗi
+          console.log('❌ Lỗi insert câu hỏi:', q.question_en, error.message);
+        }
       }
     }
 
