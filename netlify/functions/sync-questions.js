@@ -104,13 +104,14 @@ exports.handler = async (event) => {
     }
     
     console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${upserted} câu hỏi`);
-
+    
+    // ✅ Quan trọng: Phải trả về upserted, không phải inserted
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: inserted,
+        synced: upserted,  // ← Đổi từ inserted thành upserted
       }),
     };
   } catch (err) {
