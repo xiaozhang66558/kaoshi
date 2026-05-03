@@ -130,7 +130,7 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   const existing = await getActiveSession();
   if (existing) throw new Error('Bạn đang có bài thi chưa hoàn thành');
 
-  let query = supabase.from('questions_cache').select('id, score').eq('is_active', true);
+  let query = supabase.from('questions_cache').select('*').eq('is_active', true);  // ✅ Lấy tất cả trường
   if (series) query = query.eq('series', series);
   if (position) query = query.eq('position', position);
   
@@ -140,10 +140,22 @@ export async function createExamSession({ durationMins = 30, series = null, posi
     throw new Error('Không có câu hỏi nào trong ngân hàng');
   }
   
+  // ✅ Loại bỏ câu hỏi trùng dựa trên nội dung (không phân biệt ID)
+  const uniqueByContent = new Map();
+  for (const q of allQuestions) {
+    const contentKey = `${q.question_en}_${q.question_zh}_${q.question_vi}`;  // Tạo key từ nội dung
+    if (!uniqueByContent.has(contentKey)) {
+      uniqueByContent.set(contentKey, q);
+    }
+  }
+  
+  const uniqueQuestionsList = Array.from(uniqueByContent.values());
+  console.log(`📊 Tổng câu hỏi: ${allQuestions.length}, Sau khi loại trùng nội dung: ${uniqueQuestionsList.length}`);
+  
   const questionsByScore = {
-    5: allQuestions.filter(q => q.score === 5),
-    10: allQuestions.filter(q => q.score === 10),
-    20: allQuestions.filter(q => q.score === 20)
+    5: uniqueQuestionsList.filter(q => q.score === 5),
+    10: uniqueQuestionsList.filter(q => q.score === 10),
+    20: uniqueQuestionsList.filter(q => q.score === 20)
   };
   
   const targetCounts = {
@@ -172,19 +184,22 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   const selected10 = getRandomDistinctItems(questionsByScore[10], targetCounts[10]);
   const selected20 = getRandomDistinctItems(questionsByScore[20], targetCounts[20]);
   
-  const questionsMap = new Map();
+  // ✅ Loại bỏ trùng lần nữa khi gộp (dùng nội dung, không dùng ID)
+  const finalMap = new Map();
   [...selected5, ...selected10, ...selected20].forEach(q => {
-    if (!questionsMap.has(q.id)) {
-      questionsMap.set(q.id, q);
+    const contentKey = `${q.question_en}_${q.question_zh}_${q.question_vi}`;
+    if (!finalMap.has(contentKey)) {
+      finalMap.set(contentKey, q);
     }
   });
   
-  const uniqueQuestions = Array.from(questionsMap.values());
+  const uniqueQuestions = Array.from(finalMap.values());
   
   if (uniqueQuestions.length !== selected5.length + selected10.length + selected20.length) {
-    console.warn(`⚠️ Đã phát hiện và loại bỏ ${(selected5.length + selected10.length + selected20.length) - uniqueQuestions.length} câu hỏi trùng lặp`);
+    console.warn(`⚠️ Đã loại bỏ ${(selected5.length + selected10.length + selected20.length) - uniqueQuestions.length} câu hỏi trùng nội dung`);
   }
   
+  // Xáo trộn lần cuối
   for (let i = uniqueQuestions.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [uniqueQuestions[i], uniqueQuestions[j]] = [uniqueQuestions[j], uniqueQuestions[i]];
@@ -195,6 +210,7 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   const totalScore = uniqueQuestions.reduce((sum, q) => sum + q.score, 0);
   
   console.log(`✅ Tạo đề thi: ${totalQuestions} câu, tổng điểm ${totalScore}`);
+  console.log(`📋 Số câu dự kiến: ${targetCounts[5] + targetCounts[10] + targetCounts[20]}, Thực tế: ${totalQuestions}`);
   
   const { data: session, error: insertErr } = await supabase
     .from('exam_sessions')
