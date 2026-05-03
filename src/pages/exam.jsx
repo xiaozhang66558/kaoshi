@@ -60,69 +60,57 @@ export default function ExamPage() {
   async function loadFilterOptions() {
     setLoadingOptions(true);
     try {
-      // ======= LẤY SERIES (phân trang thủ công) =======
-      let allSeriesRows = [];
+      // ======= LẤY TẤT CẢ SERIES (phân trang) =======
+      let allSeries = [];
       let page = 0;
       const pageSize = 1000;
       let hasMore = true;
       
       while (hasMore) {
-        const from = page * pageSize;
-        const to = (page + 1) * pageSize - 1;
-        
         const { data, error } = await supabase
           .from('questions_cache')
           .select('series')
           .eq('is_active', true)
           .not('series', 'is', null)
-          .range(from, to);
+          .range(page * pageSize, (page + 1) * pageSize - 1);
         
         if (error) throw error;
         
         if (data && data.length > 0) {
-          allSeriesRows.push(...data);
+          allSeries.push(...data);
           page++;
         }
-        
-        if (!data || data.length < pageSize) {
-          hasMore = false;
-        }
+        if (!data || data.length < pageSize) hasMore = false;
       }
       
-      const uniqueSeries = [...new Set(allSeriesRows.map(item => item.series).filter(Boolean))];
-      console.log(`📋 Đã load ${uniqueSeries.length} series (từ ${allSeriesRows.length} dòng)`);
+      const uniqueSeries = [...new Set(allSeries.map(item => item.series).filter(Boolean))];
+      console.log(`📋 Đã load ${uniqueSeries.length} series (từ ${allSeries.length} dòng)`);
       setSeriesList(uniqueSeries.sort());
   
-      // ======= LẤY POSITION (phân trang thủ công) =======
-      let allPositionRows = [];
+      // ======= LẤY TẤT CẢ POSITIONS (phân trang) =======
+      let allPositions = [];
       page = 0;
       hasMore = true;
       
       while (hasMore) {
-        const from = page * pageSize;
-        const to = (page + 1) * pageSize - 1;
-        
         const { data, error } = await supabase
           .from('questions_cache')
           .select('position')
           .eq('is_active', true)
           .not('position', 'is', null)
-          .range(from, to);
+          .range(page * pageSize, (page + 1) * pageSize - 1);
         
         if (error) throw error;
         
         if (data && data.length > 0) {
-          allPositionRows.push(...data);
+          allPositions.push(...data);
           page++;
         }
-        
-        if (!data || data.length < pageSize) {
-          hasMore = false;
-        }
+        if (!data || data.length < pageSize) hasMore = false;
       }
       
-      const uniquePositions = [...new Set(allPositionRows.map(item => item.position).filter(Boolean))];
-      console.log(`📋 Đã load ${uniquePositions.length} positions (từ ${allPositionRows.length} dòng)`);
+      const uniquePositions = [...new Set(allPositions.map(item => item.position).filter(Boolean))];
+      console.log(`📋 Đã load ${uniquePositions.length} positions (từ ${allPositions.length} dòng)`);
       setPositionList(uniquePositions.sort());
     } catch (err) { 
       console.error('Lỗi load filter options:', err); 
