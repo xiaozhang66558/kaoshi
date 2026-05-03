@@ -170,33 +170,21 @@ export default function AdminPage() {
 
   async function loadFilterOptions() {
     try {
-      // Lấy series - dùng range thay vì RPC
-      const { data: seriesData, error: seriesError } = await supabase
-        .from('questions_cache')
-        .select('series')
-        .eq('is_active', true)
-        .not('series', 'is', null)
-        .range(0, 9999);  // Lấy 10000 dòng
-      
-      if (seriesError) throw seriesError;
+      // Dùng view hoặc RPC cho series
+      const { data: seriesData } = await supabase
+        .from('distinct_series_view')
+        .select('series');
       
       const uniqueSeries = [...new Set(seriesData?.map(item => item.series).filter(Boolean))];
-      console.log(`📋 Đã load ${uniqueSeries.length} series`);
-      setSeriesOptions?.(uniqueSeries) || setSeriesList?.(uniqueSeries);  // Tùy theo file
+      setSeriesOptions(uniqueSeries);
   
-      // Lấy position
-      const { data: positionData, error: positionError } = await supabase
-        .from('questions_cache')
-        .select('position')
-        .eq('is_active', true)
-        .not('position', 'is', null)
-        .range(0, 9999);
-      
-      if (positionError) throw positionError;
+      // Dùng view hoặc RPC cho position
+      const { data: positionData } = await supabase
+        .from('distinct_positions_view')
+        .select('position');
       
       const uniquePositions = [...new Set(positionData?.map(item => item.position).filter(Boolean))];
-      console.log(`📋 Đã load ${uniquePositions.length} positions`);
-      setPositionOptions?.(uniquePositions) || setPositionList?.(uniquePositions);
+      setPositionOptions(uniquePositions);
     } catch (err) {
       console.error('Lỗi load filter options:', err);
     }
@@ -363,14 +351,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      
-      // ✅ Hiển thị message từ server (nếu có) hoặc dùng translation
-      if (data.message) {
-        alert(data.message);
-      } else {
-        alert(t('sync_success').replace('{count}', data.synced || 0));
-      }
-      
+      alert(t('sync_success').replace('{count}', data.synced));
       fetchData();
     } catch (err) {
       alert(t('sync_failed') + err.message);
