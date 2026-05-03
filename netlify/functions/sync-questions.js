@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 const SHEET_RANGE = 'Sheet1!A2:J10000';
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 200;
 
 exports.handler = async (event) => {
   const headers = {
@@ -21,6 +21,7 @@ exports.handler = async (event) => {
   try {
     console.log('[sync-questions] Bắt đầu đồng bộ...');
     
+    // Lấy dữ liệu từ Google Sheet
     const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${process.env.GOOGLE_SHEETS_ID}/values/${encodeURIComponent(SHEET_RANGE)}?key=${process.env.GOOGLE_API_KEY}`;
     const sheetsRes = await fetch(sheetsUrl);
     
@@ -31,24 +32,13 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
     
-    let totalSheetQuestions = 0;
-    for (const row of rows) {
-      const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
-      if (hasQuestion) totalSheetQuestions++;
-    }
-    
-    console.log(`[sync-questions] 📊 Tổng số câu hỏi trong Google Sheet: ${totalSheetQuestions}`);
+    console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
 
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
-    );
-
-    let inserted = 0;
-    
-    // ✅ DUYỆT TỪNG DÒNG, INSERT TỪNG CÂU (KHÔNG KIỂM TRA GÌ CẢ)
+    // Xử lý dữ liệu
+    const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
+      // Kiểm tra có ít nhất 1 ngôn ngữ
       const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
       if (!hasQuestion) continue;
       
@@ -58,7 +48,8 @@ exports.handler = async (event) => {
       else if (diffValue === '2') difficulty = 'medium';
       else if (diffValue === '3') difficulty = 'hard';
       
-      const question = {
+      questions.push({
+        sheet_row_id: `row_${i}_${Date.now()}_${i}`,
         series:       String(row[0] || '').trim(),
         position:     String(row[1] || '').trim(),
         question_en:  String(row[2] || '').trim(),
@@ -75,32 +66,46 @@ exports.handler = async (event) => {
         option_b:     '',
         option_c:     '',
         option_d:     '',
-      };
-      
-      // ✅ INSERT từng câu, bỏ qua lỗi (nếu lỗi vẫn tiếp tục)
-      const { error } = await supabase
+      });
+    }
+
+    if (questions.length === 0) {
+      return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
+    }
+
+    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi`);
+
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY
+    );
+
+    // Thêm dữ liệu theo BATCH
+    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi...`);
+    let inserted = 0;
+    
+    for (let i = 0; i < questions.length; i += BATCH_SIZE) {
+      const batch = questions.slice(i, i + BATCH_SIZE);
+      const { error: insertError } = await supabase
         .from('questions_cache')
-        .insert(question);
+        .insert(batch);
       
-      if (error) {
-        console.log(`⚠️ Lỗi dòng ${i + 1}: ${error.message}`);
+      if (insertError) {
+        console.error(`Lỗi batch ${i/BATCH_SIZE + 1}:`, insertError.message);
       } else {
-        inserted++;
-        if (inserted % 100 === 0) {
-          console.log(`✅ Đã thêm ${inserted} câu hỏi`);
-        }
+        inserted += batch.length;
+        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã thêm ${batch.length} câu hỏi`);
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi mới`);
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        message: `✅ Đã thêm ${inserted} câu hỏi từ Google Sheet.`,
-        totalInSheet: totalSheetQuestions,
-        inserted: inserted,
+        message: 'Sync thành công', 
+        synced: inserted,
       }),
     };
   } catch (err) {
