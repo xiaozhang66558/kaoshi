@@ -76,35 +76,33 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // ✅ XÓA HẾT DỮ LIỆU CŨ trước khi thêm mới
-    console.log('[sync-questions] Đang xóa dữ liệu cũ...');
-    
-    const { error: deleteError } = await supabase
-      .from('questions_cache')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-    
-    if (deleteError) throw deleteError;
-    
-    console.log('[sync-questions] ✅ Đã xóa dữ liệu cũ');
-
-    // Thêm dữ liệu mới
+    // ✅ CHỈ THÊM MỚI, KHÔNG XÓA
+    console.log(`[sync-questions] Đang thêm câu hỏi mới...`);
     let inserted = 0;
+    let skipped = 0;
+    
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
+      
       const { error: insertError } = await supabase
         .from('questions_cache')
         .insert(batch);
       
       if (insertError) {
-        console.error(`Lỗi batch:`, insertError.message);
+        // Nếu lỗi duplicate key, bỏ qua (câu hỏi đã tồn tại)
+        if (insertError.code === '23505') {
+          skipped += batch.length;
+          console.log(`⏭️ Batch: ${batch.length} câu đã tồn tại, bỏ qua`);
+        } else {
+          console.error(`Lỗi batch:`, insertError.message);
+        }
       } else {
         inserted += batch.length;
-        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}: Đã thêm ${batch.length} câu hỏi`);
+        console.log(`✅ Batch: Đã thêm ${batch.length} câu hỏi mới`);
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi mới, ${skipped} câu đã tồn tại`);
 
     return {
       statusCode: 200,
