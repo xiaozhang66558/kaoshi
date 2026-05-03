@@ -81,29 +81,50 @@ exports.handler = async (event) => {
     );
 
     // Thêm dữ liệu theo BATCH
-    console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi...`);
-    let upserted = 0;
+    // Đồng bộ câu hỏi (kiểm tra trùng trước khi insert)
+console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi...`);
+let synced = 0;
+
+for (const question of questions) {
+  // Kiểm tra xem câu hỏi đã tồn tại chưa (dựa vào question_en)
+  const { data: existing, error: findError } = await supabase
+    .from('questions_cache')
+    .select('id')
+    .eq('question_en', question.question_en)
+    .maybeSingle();
+  
+  if (findError) {
+    console.error(`Lỗi kiểm tra: ${findError.message}`);
+    continue;
+  }
+  
+  if (existing) {
+    // Cập nhật câu hỏi hiện có
+    const { error: updateError } = await supabase
+      .from('questions_cache')
+      .update(question)
+      .eq('id', existing.id);
     
-    for (let i = 0; i < questions.length; i += BATCH_SIZE) {
-      const batch = questions.slice(i, i + BATCH_SIZE);
-      
-      // ✅ Dùng upsert thay vì insert
-      const { error: upsertError } = await supabase
-        .from('questions_cache')
-        .upsert(batch, { 
-          onConflict: 'question_en',  // Nếu trùng question_en thì cập nhật
-          ignoreDuplicates: false 
-        });
-      
-      if (upsertError) {
-        console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, upsertError.message);
-      } else {
-        upserted += batch.length;
-        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã đồng bộ ${batch.length} câu hỏi`);
-      }
+    if (updateError) {
+      console.error(`Lỗi cập nhật: ${updateError.message}`);
+    } else {
+      synced++;
     }
+  } else {
+    // Thêm câu hỏi mới
+    const { error: insertError } = await supabase
+      .from('questions_cache')
+      .insert(question);
     
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${upserted} câu hỏi`);
+    if (insertError) {
+      console.error(`Lỗi thêm mới: ${insertError.message}`);
+    } else {
+      synced++;
+    }
+  }
+}
+
+console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${synced} câu hỏi`);
     
     // ✅ Quan trọng: Phải trả về upserted, không phải inserted
     return {
