@@ -60,27 +60,27 @@ export default function ExamPage() {
   async function loadFilterOptions() {
     setLoadingOptions(true);
     try {
-      // ✅ Dùng range để lấy nhiều dữ liệu hơn (tránh timeout)
+      // ✅ Dùng RANGE thay vì phân trang (1 request duy nhất)
       const { data: seriesData, error: seriesError } = await supabase
         .from('questions_cache')
         .select('series')
         .eq('is_active', true)
         .not('series', 'is', null)
-        .range(0, 49999);  // Lấy tối đa 50000 dòng
+        .range(0, 19999);  // Lấy 20000 dòng
       
       if (seriesError) throw seriesError;
       
       const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
       console.log(`📋 Đã load ${uniqueSeries.length} series`);
       setSeriesList(uniqueSeries.sort());
-
-      // ✅ Dùng range cho position
+  
+      // ✅ Dùng RANGE cho position
       const { data: positionData, error: positionError } = await supabase
         .from('questions_cache')
         .select('position')
         .eq('is_active', true)
         .not('position', 'is', null)
-        .range(0, 49999);
+        .range(0, 19999);
       
       if (positionError) throw positionError;
       
