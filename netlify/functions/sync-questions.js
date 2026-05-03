@@ -32,22 +32,7 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
     
-    // Đếm số dòng có nội dung câu hỏi
-    let totalQuestionsInSheet = 0;
-    let invalidRows = 0;
-    
-    for (const row of rows) {
-      const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
-      if (hasQuestion) {
-        totalQuestionsInSheet++;
-      } else {
-        invalidRows++;
-      }
-    }
-    
-    console.log(`[sync-questions] 📊 Tổng số dòng trong Sheet: ${rows.length}`);
-    console.log(`[sync-questions] 📊 Số câu hỏi hợp lệ trong Sheet: ${totalQuestionsInSheet}`);
-    console.log(`[sync-questions] 📊 Số dòng không hợp lệ: ${invalidRows}`);
+    console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
 
     // Xử lý dữ liệu
     const questions = [];
@@ -63,7 +48,6 @@ exports.handler = async (event) => {
       else if (diffValue === '3') difficulty = 'hard';
       
       questions.push({
-        sheet_row_id: `row_${i}_${Date.now()}_${i}`,
         series:       String(row[0] || '').trim(),
         position:     String(row[1] || '').trim(),
         question_en:  String(row[2] || '').trim(),
@@ -84,19 +68,17 @@ exports.handler = async (event) => {
     }
 
     if (questions.length === 0) {
-      return { statusCode: 200, headers, body: JSON.stringify({ 
-        message: 'Sync thành công', 
-        totalRows: rows.length,
-        validQuestions: 0,
-        synced: 0 
-      })};
+      return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
     }
+
+    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi`);
 
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
+    // Thêm dữ liệu theo BATCH
     console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi...`);
     let inserted = 0;
     
@@ -114,16 +96,13 @@ exports.handler = async (event) => {
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất!`);
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
 
-    // Trả về response với thông tin chi tiết
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
-        message: `Sync thành công - Google Sheet có ${totalQuestionsInSheet} câu hỏi`, 
-        totalRows: rows.length,
-        validQuestions: totalQuestionsInSheet,
+        message: 'Sync thành công', 
         synced: inserted,
       }),
     };
