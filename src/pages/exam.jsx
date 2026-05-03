@@ -60,13 +60,13 @@ export default function ExamPage() {
   async function loadFilterOptions() {
     setLoadingOptions(true);
     try {
-      // Lấy danh sách series từ questions_cache
+      // ✅ Tăng limit lên 50000 để lấy tất cả
       const { data: seriesData, error: seriesError } = await supabase
         .from('questions_cache')
         .select('series')
         .eq('is_active', true)
         .not('series', 'is', null)
-        .limit(10000);
+        .limit(50000);  // ← QUAN TRỌNG: Tăng lên 50000
       
       if (seriesError) throw seriesError;
       
@@ -74,13 +74,13 @@ export default function ExamPage() {
       console.log(`📋 Đã load ${uniqueSeries.length} series`);
       setSeriesList(uniqueSeries.sort());
   
-      // Lấy danh sách position từ questions_cache
+      // ✅ Tương tự cho position
       const { data: positionData, error: positionError } = await supabase
         .from('questions_cache')
         .select('position')
         .eq('is_active', true)
         .not('position', 'is', null)
-        .limit(10000);
+        .limit(50000);  // ← QUAN TRỌNG: Tăng lên 50000
       
       if (positionError) throw positionError;
       
