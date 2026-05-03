@@ -58,57 +58,66 @@ export default function ExamPage() {
   }, []);
 
   async function loadFilterOptions() {
-    setLoadingOptions(true);
-    try {
-      // ✅ Tăng limit lên 50000 để lấy tất cả
-      const { data: seriesData, error: seriesError } = await supabase
+  setLoadingOptions(true);
+  try {
+    // ✅ DÙNG PHÂN TRANG ĐỂ LẤY TẤT CẢ SERIES
+    let allSeries = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
+    
+    while (hasMore) {
+      const { data, error } = await supabase
         .from('questions_cache')
         .select('series')
         .eq('is_active', true)
         .not('series', 'is', null)
-        .limit(50000);  // ← QUAN TRỌNG: Tăng lên 50000
+        .range(page * pageSize, (page + 1) * pageSize - 1);
       
-      if (seriesError) throw seriesError;
+      if (error) throw error;
       
-      const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
-      console.log(`📋 Đã load ${uniqueSeries.length} series`);
-      setSeriesList(uniqueSeries.sort());
-  
-      // ✅ Tương tự cho position
-      const { data: positionData, error: positionError } = await supabase
+      if (data && data.length > 0) {
+        allSeries.push(...data);
+        page++;
+      }
+      if (!data || data.length < pageSize) hasMore = false;
+    }
+    
+    const uniqueSeries = [...new Set(allSeries.map(item => item.series).filter(Boolean))];
+    console.log(`📋 Đã load ${uniqueSeries.length} series (tổng cộng)`);
+    setSeriesList(uniqueSeries.sort());
+
+    // ✅ DÙNG PHÂN TRANG ĐỂ LẤY TẤT CẢ POSITIONS
+    let allPositions = [];
+    page = 0;
+    hasMore = true;
+    
+    while (hasMore) {
+      const { data, error } = await supabase
         .from('questions_cache')
         .select('position')
         .eq('is_active', true)
         .not('position', 'is', null)
-        .limit(50000);  // ← QUAN TRỌNG: Tăng lên 50000
+        .range(page * pageSize, (page + 1) * pageSize - 1);
       
-      if (positionError) throw positionError;
+      if (error) throw error;
       
-      const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
-      console.log(`📋 Đã load ${uniquePositions.length} positions`);
-      setPositionList(uniquePositions.sort());
-    } catch (err) { 
-      console.error(err); 
-    } finally { 
-      setLoadingOptions(false); 
+      if (data && data.length > 0) {
+        allPositions.push(...data);
+        page++;
+      }
+      if (!data || data.length < pageSize) hasMore = false;
     }
+    
+    const uniquePositions = [...new Set(allPositions.map(item => item.position).filter(Boolean))];
+    console.log(`📋 Đã load ${uniquePositions.length} positions (tổng cộng)`);
+    setPositionList(uniquePositions.sort());
+  } catch (err) { 
+    console.error('Lỗi load filter options:', err); 
+  } finally { 
+    setLoadingOptions(false); 
   }
-
-  useEffect(() => {
-    if (phase !== 'exam' || timeLeft <= 0) return;
-    timerRef.current = setInterval(() => {
-      setTimeLeft(t => {
-        if (t <= 1) {
-          clearInterval(timerRef.current);
-          setAutoSubmit(true);
-          setShowSubmitModal(true);
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timerRef.current);
-  }, [phase]);
+}
 
   async function loadSession(s) {
     const { session: sess, questions: qs } = await getSessionWithQuestions(s.id);
