@@ -38,6 +38,7 @@ exports.handler = async (event) => {
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
+      // Kiểm tra có ít nhất 1 ngôn ngữ
       const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
       if (!hasQuestion) continue;
       
@@ -80,35 +81,31 @@ exports.handler = async (event) => {
     );
 
     // Thêm dữ liệu theo BATCH
-    console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi...`);
-    let upserted = 0;
+    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi...`);
+    let inserted = 0;
     
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
-      
-      const { error: upsertError } = await supabase
+      const { error: insertError } = await supabase
         .from('questions_cache')
-        .upsert(batch, { 
-          onConflict: 'question_en',
-          ignoreDuplicates: false 
-        });
+        .insert(batch);
       
-      if (upsertError) {
-        console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, upsertError.message);
+      if (insertError) {
+        console.error(`Lỗi batch ${i/BATCH_SIZE + 1}:`, insertError.message);
       } else {
-        upserted += batch.length;
-        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã đồng bộ ${batch.length} câu hỏi`);
+        inserted += batch.length;
+        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã thêm ${batch.length} câu hỏi`);
       }
     }
-    
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${upserted} câu hỏi`);
+
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: upserted,  // ✅ Sửa: inserted → upserted
+        synced: inserted,
       }),
     };
   } catch (err) {
