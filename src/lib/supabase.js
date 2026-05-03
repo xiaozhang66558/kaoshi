@@ -146,12 +146,9 @@ export async function createExamSession({ durationMins = 30, series = null, posi
     }
   }
   
-  // Hàm lấy ngẫu nhiên không trùng lặp trong cùng nhóm
+  // Hàm lấy ngẫu nhiên không trùng
   function getRandomDistinctItems(arr, n) {
-    if (n > arr.length) {
-      console.warn(`Không đủ phần tử, cần ${n} nhưng chỉ có ${arr.length}`);
-      return [...arr];
-    }
+    if (n > arr.length) return [...arr];
     const shuffled = [...arr];
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -164,35 +161,33 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   const selected10 = getRandomDistinctItems(questionsByScore[10], targetCounts[10]);
   const selected20 = getRandomDistinctItems(questionsByScore[20], targetCounts[20]);
   
-  // Gộp tất cả câu hỏi đã chọn
-  let allSelected = [...selected5, ...selected10, ...selected20];
+  // Gộp và loại bỏ trùng lặp bằng Map (dùng id làm key)
+  const questionsMap = new Map();
   
-  // Kiểm tra và loại bỏ trùng lặp (phòng ngừa)
-  const uniqueIds = new Set();
-  const uniqueQuestions = [];
-  for (const q of allSelected) {
-    if (!uniqueIds.has(q.id)) {
-      uniqueIds.add(q.id);
-      uniqueQuestions.push(q);
+  [...selected5, ...selected10, ...selected20].forEach(q => {
+    if (!questionsMap.has(q.id)) {
+      questionsMap.set(q.id, q);
     }
-  }
+  });
   
-  if (uniqueQuestions.length !== allSelected.length) {
-    console.warn(`Phát hiện ${allSelected.length - uniqueQuestions.length} câu hỏi trùng lặp, đã loại bỏ`);
-    allSelected = uniqueQuestions;
+  const uniqueQuestions = Array.from(questionsMap.values());
+  
+  if (uniqueQuestions.length !== selected5.length + selected10.length + selected20.length) {
+    console.warn(`⚠️ Đã phát hiện và loại bỏ ${(selected5.length + selected10.length + selected20.length) - uniqueQuestions.length} câu hỏi trùng lặp`);
   }
   
   // Xáo trộn lần cuối
-  for (let i = allSelected.length - 1; i > 0; i--) {
+  for (let i = uniqueQuestions.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [allSelected[i], allSelected[j]] = [allSelected[j], allSelected[i]];
+    [uniqueQuestions[i], uniqueQuestions[j]] = [uniqueQuestions[j], uniqueQuestions[i]];
   }
   
-  const selectedIds = allSelected.map(q => q.id);
+  const selectedIds = uniqueQuestions.map(q => q.id);
   const totalQuestions = selectedIds.length;
-  const totalScore = allSelected.reduce((sum, q) => sum + q.score, 0);
+  const totalScore = uniqueQuestions.reduce((sum, q) => sum + q.score, 0);
   
-  console.log(`Tạo đề thi: ${totalQuestions} câu, tổng điểm ${totalScore}`);
+  console.log(`✅ Tạo đề thi: ${totalQuestions} câu, tổng điểm ${totalScore}`);
+  console.log(`📋 Danh sách ID câu hỏi (${selectedIds.length} câu):`, selectedIds);
   
   const { data: session, error: insertErr } = await supabase
     .from('exam_sessions')
@@ -212,16 +207,40 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   return session.id;
 }
 
-export async function getActiveSession() {
-  const { data, error } = await supabase
+export async function getSessionWithQuestions(sessionId) {
+  const { data: session, error: sErr } = await supabase
     .from('exam_sessions')
     .select('*')
-    .eq('status', 'in_progress')
-    .order('started_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
+    .eq('id', sessionId)
+    .single();
+  if (sErr) throw sErr;
+  
+  if (!session.question_ids || session.question_ids.length === 0) {
+    return { session, questions: [] };
+  }
+  
+  const { data: questions, error: qErr } = await supabase
+    .from('questions_cache')
+    .select('id, question_en, question_zh, question_vi, image_1, image_2, image_3, option_a, option_b, option_c, option_d, topic, difficulty, score, series, position')
+    .in('id', session.question_ids);
+  if (qErr) throw qErr;
+  
+  // Tạo map để tra cứu nhanh
+  const questionsMap = new Map();
+  questions.forEach(q => {
+    questionsMap.set(q.id, q);
+  });
+  
+  // Giữ đúng thứ tự và loại bỏ undefined
+  const ordered = session.question_ids
+    .map(id => questionsMap.get(id))
+    .filter(q => q !== undefined);
+  
+  if (ordered.length !== session.question_ids.length) {
+    console.warn(`⚠️ Chỉ tìm thấy ${ordered.length}/${session.question_ids.length} câu hỏi`);
+  }
+  
+  return { session, questions: ordered };
 }
 
 export async function getSessionWithQuestions(sessionId) {
