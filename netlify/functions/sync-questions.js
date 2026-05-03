@@ -81,50 +81,30 @@ exports.handler = async (event) => {
     );
 
     // Thêm dữ liệu theo BATCH
-    // Đồng bộ câu hỏi (kiểm tra trùng trước khi insert)
+// Đồng bộ câu hỏi bằng UPSERT theo batch
 console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi...`);
-let synced = 0;
+let upserted = 0;
+const BATCH_SIZE = 100; // Xử lý 100 câu 1 lần
 
-for (const question of questions) {
-  // Kiểm tra xem câu hỏi đã tồn tại chưa (dựa vào question_en)
-  const { data: existing, error: findError } = await supabase
+for (let i = 0; i < questions.length; i += BATCH_SIZE) {
+  const batch = questions.slice(i, i + BATCH_SIZE);
+  
+  const { error: upsertError } = await supabase
     .from('questions_cache')
-    .select('id')
-    .eq('question_en', question.question_en)
-    .maybeSingle();
+    .upsert(batch, { 
+      onConflict: 'question_en',  // Dựa vào question_en để tránh trùng
+      ignoreDuplicates: false 
+    });
   
-  if (findError) {
-    console.error(`Lỗi kiểm tra: ${findError.message}`);
-    continue;
-  }
-  
-  if (existing) {
-    // Cập nhật câu hỏi hiện có
-    const { error: updateError } = await supabase
-      .from('questions_cache')
-      .update(question)
-      .eq('id', existing.id);
-    
-    if (updateError) {
-      console.error(`Lỗi cập nhật: ${updateError.message}`);
-    } else {
-      synced++;
-    }
+  if (upsertError) {
+    console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, upsertError.message);
   } else {
-    // Thêm câu hỏi mới
-    const { error: insertError } = await supabase
-      .from('questions_cache')
-      .insert(question);
-    
-    if (insertError) {
-      console.error(`Lỗi thêm mới: ${insertError.message}`);
-    } else {
-      synced++;
-    }
+    upserted += batch.length;
+    console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}: Đã đồng bộ ${batch.length} câu hỏi`);
   }
 }
 
-console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${synced} câu hỏi`);
+console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${upserted} câu hỏi`);
     
     // ✅ Quan trọng: Phải trả về upserted, không phải inserted
     return {
