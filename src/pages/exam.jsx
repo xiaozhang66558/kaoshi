@@ -57,42 +57,42 @@ export default function ExamPage() {
     });
   }, []);
 
-async function loadFilterOptions() {
-  setLoadingOptions(true);
-  try {
-    // ✅ Dùng range thay vì phân trang
-    const { data: seriesData, error: seriesError } = await supabase
-      .from('questions_cache')
-      .select('series')
-      .eq('is_active', true)
-      .not('series', 'is', null)
-      .range(0, 49999);  // Lấy từ 0 đến 49999
-    
-    if (seriesError) throw seriesError;
-    
-    const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
-    console.log(`📋 Đã load ${uniqueSeries.length} series`);
-    setSeriesList(uniqueSeries.sort());
+  async function loadFilterOptions() {
+    setLoadingOptions(true);
+    try {
+      // ✅ Dùng range để lấy nhiều dữ liệu hơn (tránh timeout)
+      const { data: seriesData, error: seriesError } = await supabase
+        .from('questions_cache')
+        .select('series')
+        .eq('is_active', true)
+        .not('series', 'is', null)
+        .range(0, 49999);  // Lấy tối đa 50000 dòng
+      
+      if (seriesError) throw seriesError;
+      
+      const uniqueSeries = [...new Set(seriesData.map(item => item.series).filter(Boolean))];
+      console.log(`📋 Đã load ${uniqueSeries.length} series`);
+      setSeriesList(uniqueSeries.sort());
 
-    // ✅ Dùng range thay vì phân trang
-    const { data: positionData, error: positionError } = await supabase
-      .from('questions_cache')
-      .select('position')
-      .eq('is_active', true)
-      .not('position', 'is', null)
-      .range(0, 49999);  // Lấy từ 0 đến 49999
-    
-    if (positionError) throw positionError;
-    
-    const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
-    console.log(`📋 Đã load ${uniquePositions.length} positions`);
-    setPositionList(uniquePositions.sort());
-  } catch (err) { 
-    console.error('Lỗi load filter options:', err); 
-  } finally { 
-    setLoadingOptions(false); 
+      // ✅ Dùng range cho position
+      const { data: positionData, error: positionError } = await supabase
+        .from('questions_cache')
+        .select('position')
+        .eq('is_active', true)
+        .not('position', 'is', null)
+        .range(0, 49999);
+      
+      if (positionError) throw positionError;
+      
+      const uniquePositions = [...new Set(positionData.map(item => item.position).filter(Boolean))];
+      console.log(`📋 Đã load ${uniquePositions.length} positions`);
+      setPositionList(uniquePositions.sort());
+    } catch (err) { 
+      console.error('Lỗi load filter options:', err); 
+    } finally { 
+      setLoadingOptions(false); 
+    }
   }
-}
 
   async function loadSession(s) {
     const { session: sess, questions: qs } = await getSessionWithQuestions(s.id);
