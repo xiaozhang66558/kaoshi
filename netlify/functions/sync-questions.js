@@ -81,24 +81,29 @@ exports.handler = async (event) => {
     );
 
     // Thêm dữ liệu theo BATCH
-    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi...`);
-    let inserted = 0;
+    console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi...`);
+    let upserted = 0;
     
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
-      const { error: insertError } = await supabase
-        .from('questions_cache')
-        .insert(batch);
       
-      if (insertError) {
-        console.error(`Lỗi batch ${i/BATCH_SIZE + 1}:`, insertError.message);
+      // ✅ Dùng upsert thay vì insert
+      const { error: upsertError } = await supabase
+        .from('questions_cache')
+        .upsert(batch, { 
+          onConflict: 'question_en',  // Nếu trùng question_en thì cập nhật
+          ignoreDuplicates: false 
+        });
+      
+      if (upsertError) {
+        console.error(`Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, upsertError.message);
       } else {
-        inserted += batch.length;
-        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã thêm ${batch.length} câu hỏi`);
+        upserted += batch.length;
+        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã đồng bộ ${batch.length} câu hỏi`);
       }
     }
-
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
+    
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã đồng bộ ${upserted} câu hỏi`);
 
     return {
       statusCode: 200,
