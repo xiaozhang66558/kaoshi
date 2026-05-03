@@ -60,68 +60,49 @@ export default function ExamPage() {
   async function loadFilterOptions() {
     setLoadingOptions(true);
     try {
-      // ===== LẤY SERIES =====
-      let allSeries = [];
-      let page = 0;
-      const pageSize = 1000;
-      let hasMore = true;
+      // Lấy series - dùng alias 'series_name'
+      const { data: seriesData, error: seriesError } = await supabase
+        .rpc('get_distinct_series');
       
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('questions_cache')
-          .select('series')
-          .eq('is_active', true)
-          .not('series', 'is', null)
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-        
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          allSeries.push(...data);
-          page++;
-        }
-        if (!data || data.length < pageSize) hasMore = false;
-        
-        console.log(`📦 Đã lấy ${allSeries.length} dòng series`);
-      }
+      if (seriesError) throw seriesError;
       
-      const uniqueSeries = [...new Set(allSeries.map(item => item.series).filter(Boolean))];
-      console.log(`🎯 Tổng số series: ${uniqueSeries.length}`);
-      setSeriesList(uniqueSeries.sort());
+      // Chú ý: kết quả trả về có tên cột là 'series_name'
+      const uniqueSeries = seriesData?.map(item => item.series_name).filter(Boolean) || [];
+      console.log(`📋 Đã load ${uniqueSeries.length} series`);
+      setSeriesList(uniqueSeries);
   
-      // ===== LẤY POSITION =====
-      let allPositions = [];
-      page = 0;
-      hasMore = true;
+      // Lấy position - dùng alias 'position_name'
+      const { data: positionData, error: positionError } = await supabase
+        .rpc('get_distinct_positions');
       
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from('questions_cache')
-          .select('position')
-          .eq('is_active', true)
-          .not('position', 'is', null)
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-        
-        if (error) throw error;
-        
-        if (data && data.length > 0) {
-          allPositions.push(...data);
-          page++;
-        }
-        if (!data || data.length < pageSize) hasMore = false;
-        
-        console.log(`📦 Đã lấy ${allPositions.length} dòng position`);
-      }
+      if (positionError) throw positionError;
       
-      const uniquePositions = [...new Set(allPositions.map(item => item.position).filter(Boolean))];
-      console.log(`🎯 Tổng số positions: ${uniquePositions.length}`);
-      setPositionList(uniquePositions.sort());
+      // Chú ý: kết quả trả về có tên cột là 'position_name'
+      const uniquePositions = positionData?.map(item => item.position_name).filter(Boolean) || [];
+      console.log(`📋 Đã load ${uniquePositions.length} positions`);
+      setPositionList(uniquePositions);
     } catch (err) { 
-      console.error('Lỗi load filter options:', err); 
+      console.error(err); 
     } finally { 
       setLoadingOptions(false); 
     }
   }
+
+  useEffect(() => {
+    if (phase !== 'exam' || timeLeft <= 0) return;
+    timerRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(timerRef.current);
+          setAutoSubmit(true);
+          setShowSubmitModal(true);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 10000);
+    return () => clearInterval(timerRef.current);
+  }, [phase]);
 
   async function loadSession(s) {
     const { session: sess, questions: qs } = await getSessionWithQuestions(s.id);
