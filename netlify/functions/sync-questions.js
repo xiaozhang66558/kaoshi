@@ -32,15 +32,19 @@ exports.handler = async (event) => {
     const sheetsData = await sheetsRes.json();
     const rows = sheetsData.values || [];
     
-    console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
+    console.log(`[sync-questions] 📊 Tổng số dòng trong Google Sheet: ${rows.length}`);
 
     // Xử lý dữ liệu
     const questions = [];
+    let invalidRows = 0;
+    
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      // Kiểm tra có ít nhất 1 ngôn ngữ
       const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
-      if (!hasQuestion) continue;
+      if (!hasQuestion) {
+        invalidRows++;
+        continue;
+      }
       
       const diffValue = String(row[6] || '1').trim();
       let difficulty = 'medium';
@@ -49,7 +53,6 @@ exports.handler = async (event) => {
       else if (diffValue === '3') difficulty = 'hard';
       
       questions.push({
-        sheet_row_id: `row_${i}_${Date.now()}_${i}`,
         series:       String(row[0] || '').trim(),
         position:     String(row[1] || '').trim(),
         question_en:  String(row[2] || '').trim(),
@@ -69,43 +72,56 @@ exports.handler = async (event) => {
       });
     }
 
-    if (questions.length === 0) {
-      return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
-    }
+    console.log(`[sync-questions] 📊 Câu hỏi hợp lệ: ${questions.length}`);
+    console.log(`[sync-questions] 📊 Dòng không hợp lệ: ${invalidRows}`);
 
-    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi`);
+    if (questions.length === 0) {
+      return { statusCode: 200, headers, body: JSON.stringify({ 
+        message: 'Không có câu hỏi hợp lệ', 
+        totalRows: rows.length,
+        validQuestions: 0,
+        synced: 0 
+      })};
+    }
 
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Thêm dữ liệu theo BATCH
-    console.log(`[sync-questions] Đang thêm ${questions.length} câu hỏi...`);
-    let inserted = 0;
+    // ✅ UPSERT - KHÔNG XÓA, chỉ cập nhật hoặc thêm mới
+    console.log(`[sync-questions] Đang đồng bộ ${questions.length} câu hỏi (UPSERT)...`);
+    let upserted = 0;
     
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
-      const { error: insertError } = await supabase
-        .from('questions_cache')
-        .insert(batch);
       
-      if (insertError) {
-        console.error(`Lỗi batch ${i/BATCH_SIZE + 1}:`, insertError.message);
+      const { error: upsertError } = await supabase
+        .from('questions_cache')
+        .upsert(batch, { 
+          onConflict: 'question_en',  // Dựa vào question_en để tránh trùng
+          ignoreDuplicates: false 
+        });
+      
+      if (upsertError) {
+        console.error(`❌ Lỗi batch ${Math.floor(i/BATCH_SIZE) + 1}:`, upsertError.message);
       } else {
-        inserted += batch.length;
-        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã thêm ${batch.length} câu hỏi`);
+        upserted += batch.length;
+        console.log(`✅ Batch ${Math.floor(i/BATCH_SIZE) + 1}/${Math.ceil(questions.length/BATCH_SIZE)}: Đã đồng bộ ${batch.length} câu hỏi`);
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
+    console.log(`[sync-questions] 🎉 HOÀN TẤT!`);
+    console.log(`[sync-questions] 📊 Đã đồng bộ: ${upserted} câu hỏi (cập nhật hoặc thêm mới)`);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: inserted,
+        totalRows: rows.length,
+        validQuestions: questions.length,
+        synced: upserted,
       }),
     };
   } catch (err) {
