@@ -39,7 +39,14 @@ exports.handler = async (event) => {
     
     console.log(`[sync-questions] 📊 Tổng số câu hỏi trong Google Sheet: ${totalSheetQuestions}`);
 
-    const questions = [];
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY
+    );
+
+    let inserted = 0;
+    
+    // ✅ DUYỆT TỪNG DÒNG, INSERT TỪNG CÂU (KHÔNG KIỂM TRA GÌ CẢ)
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
@@ -51,7 +58,7 @@ exports.handler = async (event) => {
       else if (diffValue === '2') difficulty = 'medium';
       else if (diffValue === '3') difficulty = 'hard';
       
-      questions.push({
+      const question = {
         series:       String(row[0] || '').trim(),
         position:     String(row[1] || '').trim(),
         question_en:  String(row[2] || '').trim(),
@@ -68,32 +75,24 @@ exports.handler = async (event) => {
         option_b:     '',
         option_c:     '',
         option_d:     '',
-      });
-    }
-
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
-    );
-
-    console.log(`[sync-questions] 📝 Đang thêm ${questions.length} câu hỏi...`);
-    let inserted = 0;
-    
-    for (let i = 0; i < questions.length; i += BATCH_SIZE) {
-      const batch = questions.slice(i, i + BATCH_SIZE);
+      };
+      
+      // ✅ INSERT từng câu, bỏ qua lỗi (nếu lỗi vẫn tiếp tục)
       const { error } = await supabase
         .from('questions_cache')
-        .insert(batch);
+        .insert(question);
       
       if (error) {
-        console.error(`Lỗi insert batch:`, error.message);
+        console.log(`⚠️ Lỗi dòng ${i + 1}: ${error.message}`);
       } else {
-        inserted += batch.length;
-        console.log(`✅ Đã thêm ${inserted}/${questions.length} câu hỏi`);
+        inserted++;
+        if (inserted % 100 === 0) {
+          console.log(`✅ Đã thêm ${inserted} câu hỏi`);
+        }
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi`);
+    console.log(`[sync-questions] 🎉 Hoàn tất! Đã thêm ${inserted} câu hỏi mới`);
 
     return {
       statusCode: 200,
