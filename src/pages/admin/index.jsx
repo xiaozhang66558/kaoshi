@@ -170,21 +170,33 @@ export default function AdminPage() {
 
   async function loadFilterOptions() {
     try {
-      // Dùng view hoặc RPC cho series
-      const { data: seriesData } = await supabase
-        .from('distinct_series_view')
-        .select('series');
+      // Lấy series - dùng range thay vì RPC
+      const { data: seriesData, error: seriesError } = await supabase
+        .from('questions_cache')
+        .select('series')
+        .eq('is_active', true)
+        .not('series', 'is', null)
+        .range(0, 9999);  // Lấy 10000 dòng
+      
+      if (seriesError) throw seriesError;
       
       const uniqueSeries = [...new Set(seriesData?.map(item => item.series).filter(Boolean))];
-      setSeriesOptions(uniqueSeries);
+      console.log(`📋 Đã load ${uniqueSeries.length} series`);
+      setSeriesOptions?.(uniqueSeries) || setSeriesList?.(uniqueSeries);  // Tùy theo file
   
-      // Dùng view hoặc RPC cho position
-      const { data: positionData } = await supabase
-        .from('distinct_positions_view')
-        .select('position');
+      // Lấy position
+      const { data: positionData, error: positionError } = await supabase
+        .from('questions_cache')
+        .select('position')
+        .eq('is_active', true)
+        .not('position', 'is', null)
+        .range(0, 9999);
+      
+      if (positionError) throw positionError;
       
       const uniquePositions = [...new Set(positionData?.map(item => item.position).filter(Boolean))];
-      setPositionOptions(uniquePositions);
+      console.log(`📋 Đã load ${uniquePositions.length} positions`);
+      setPositionOptions?.(uniquePositions) || setPositionList?.(uniquePositions);
     } catch (err) {
       console.error('Lỗi load filter options:', err);
     }
