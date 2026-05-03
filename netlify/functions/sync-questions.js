@@ -38,7 +38,6 @@ exports.handler = async (event) => {
     const questions = [];
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      // Kiểm tra có ít nhất 1 ngôn ngữ
       const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
       if (!hasQuestion) continue;
       
@@ -87,11 +86,10 @@ exports.handler = async (event) => {
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
       
-      // ✅ Dùng upsert thay vì insert
       const { error: upsertError } = await supabase
         .from('questions_cache')
         .upsert(batch, { 
-          onConflict: 'question_en',  // Nếu trùng question_en thì cập nhật
+          onConflict: 'question_en',
           ignoreDuplicates: false 
         });
       
@@ -110,7 +108,7 @@ exports.handler = async (event) => {
       headers,
       body: JSON.stringify({ 
         message: 'Sync thành công', 
-        synced: inserted,
+        synced: upserted,  // ✅ Sửa: inserted → upserted
       }),
     };
   } catch (err) {
