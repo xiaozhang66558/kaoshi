@@ -193,7 +193,17 @@ export default function HistoryPage() {
                         const answer = session.answers[q.id];
                         const maxScore = q?.score || 0;
                         const achievedQScore = answer?.score || 0;
-                        const isCorrect = achievedQScore === maxScore && maxScore > 0;
+                        
+                        const isCorrect =
+                          achievedQScore === maxScore && maxScore > 0;
+                        
+                        const isPartial =
+                          achievedQScore > 0 &&
+                          achievedQScore < maxScore;
+                        
+                        const isWrong =
+                          achievedQScore === 0;
+                        
                         const questionImages = getQuestionImages(q);
                         
                         return (
@@ -228,8 +238,20 @@ export default function HistoryPage() {
                               )}
                               
                               {isGraded && (
-                                <div className={`${styles.gradeResult} ${isCorrect ? styles.correct : styles.wrong}`}>
-                                  {isCorrect ? `✓ ${t('correct')}` : `✗ ${t('wrong')}`}
+                                <div
+                                  className={`${styles.gradeResult} ${
+                                    isCorrect
+                                      ? styles.correct
+                                      : isPartial
+                                      ? styles.partial
+                                      : styles.wrong
+                                  }`}
+                                >
+                                  {isCorrect
+                                    ? `✓ ${t('correct')}`
+                                    : isPartial
+                                    ? `½ ${t('half_correct')}`
+                                    : `✗ ${t('wrong')}`}
                                 </div>
                               )}
                               
