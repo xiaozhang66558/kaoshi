@@ -476,3 +476,8 @@
 .lightboxClose:hover {
   color: #ef4444;
 }
+.partial {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
