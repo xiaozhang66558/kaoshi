@@ -1,5 +1,3 @@
-Click 🔄 Sync Google Sheets  they said already did thiis one and not yet updated . 
-
 const { createClient } = require('@supabase/supabase-js');
 const SHEET_RANGE = 'Sheet1!A2:J10000';
 const BATCH_SIZE = 200;
