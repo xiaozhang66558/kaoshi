@@ -16,10 +16,8 @@ function normalizeSeries(raw) {
   return map[s] || s;
 }
 
-// Generate stable ID from content (not row number)
 function makeStableId(series, position, question_en, question_zh) {
   const raw = `${series}||${position}||${question_en}||${question_zh}`;
-  // Simple hash
   let hash = 0;
   for (let i = 0; i < raw.length; i++) {
     const char = raw.charCodeAt(i);
@@ -59,10 +57,10 @@ exports.handler = async (event) => {
 
     console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
 
-    const questions = [];
+    // Build questions and DEDUPLICATE by sheet_row_id
+    const seen = new Map();
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-
       const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
       if (!hasQuestion) continue;
 
@@ -76,9 +74,11 @@ exports.handler = async (event) => {
       const position = String(row[1] || '').trim();
       const q_en     = String(row[2] || '').trim();
       const q_zh     = String(row[3] || '').trim();
+      const stableId = makeStableId(series, position, q_en, q_zh);
 
-      questions.push({
-        sheet_row_id: makeStableId(series, position, q_en, q_zh),
+      // Keep latest occurrence if duplicate
+      seen.set(stableId, {
+        sheet_row_id: stableId,
         series,
         position,
         question_en:  q_en,
@@ -98,11 +98,13 @@ exports.handler = async (event) => {
       });
     }
 
+    const questions = Array.from(seen.values());
+
     if (questions.length === 0) {
       return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
     }
 
-    console.log(`[sync-questions] Xử lý được ${questions.length} câu hỏi`);
+    console.log(`[sync-questions] Sau dedup còn ${questions.length} câu hỏi unique`);
 
     const supabase = createClient(
       process.env.SUPABASE_URL,
