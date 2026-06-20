@@ -2,28 +2,31 @@ const { createClient } = require('@supabase/supabase-js');
 const SHEET_RANGE = 'Sheet1!A2:J10000';
 const BATCH_SIZE = 200;
 
-// Auto-normalize series names — handles typos, double spaces, missing "AR" prefix
 function normalizeSeries(raw) {
   if (!raw) return '';
-  let s = raw.trim();
-  
-  // Fix multiple spaces → single space
-  s = s.replace(/\s+/g, ' ');
-  
-  // Normalize known variations
+  let s = raw.trim().replace(/\s+/g, ' ');
   const map = {
-    'AR 55FIVE MZ':               'AR 55FIVE',
-    'AR MZPLAY 55FIVE':           'AR 55FIVE',
-    'FB999':                      'AR FB999',
-    'AR FB999':                   'AR FB999',
-    'AR印度- 巴基斯坦 - MZPLAY':  'AR 巴基斯坦',
-    'AR印度- 巴基斯坦 - 巴西':    'AR 巴基斯坦',
-    'AR VN':                      'AR VIETNAM',
-    'AR VIETNAM':                 'AR VIETNAM',
+    'AR 55FIVE MZ':              'AR 55FIVE',
+    'AR MZPLAY 55FIVE':          'AR 55FIVE',
+    'FB999':                     'AR FB999',
+    'AR印度- 巴基斯坦 - MZPLAY': 'AR 巴基斯坦',
+    'AR印度- 巴基斯坦 - 巴西':   'AR 巴基斯坦',
+    'AR VN':                     'AR VIETNAM',
   };
+  return map[s] || s;
+}
 
-  if (map[s]) return map[s];
-  return s;
+// Generate stable ID from content (not row number)
+function makeStableId(series, position, question_en, question_zh) {
+  const raw = `${series}||${position}||${question_en}||${question_zh}`;
+  // Simple hash
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const char = raw.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return `q_${Math.abs(hash)}`;
 }
 
 exports.handler = async (event) => {
@@ -69,16 +72,20 @@ exports.handler = async (event) => {
       else if (diffValue === '2') difficulty = 'medium';
       else if (diffValue === '3') difficulty = 'hard';
 
-      // Use stable row index as ID + normalize series name
+      const series   = normalizeSeries(row[0]);
+      const position = String(row[1] || '').trim();
+      const q_en     = String(row[2] || '').trim();
+      const q_zh     = String(row[3] || '').trim();
+
       questions.push({
-        sheet_row_id: `row_${i}`,
-        series:       normalizeSeries(row[0]),
-        position:     String(row[1] || '').trim(),
-        question_en:  String(row[2] || '').trim(),
-        question_zh:  String(row[3] || '').trim(),
+        sheet_row_id: makeStableId(series, position, q_en, q_zh),
+        series,
+        position,
+        question_en:  q_en,
+        question_zh:  q_zh,
         question_vi:  String(row[4] || '').trim(),
         score:        parseInt(row[5]) || 10,
-        difficulty:   difficulty,
+        difficulty,
         image_1:      String(row[7] || '').trim(),
         image_2:      String(row[8] || '').trim(),
         image_3:      String(row[9] || '').trim(),
@@ -102,10 +109,7 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Upsert — update if exists, insert if new. Never duplicates, never touches submissions.
-    console.log(`[sync-questions] Đang upsert ${questions.length} câu hỏi...`);
     let inserted = 0;
-
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
       const { error: upsertError } = await supabase
@@ -120,15 +124,12 @@ exports.handler = async (event) => {
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! Đã upsert ${inserted} câu hỏi`);
+    console.log(`[sync-questions] 🎉 Hoàn tất! ${inserted} câu hỏi`);
 
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({
-        message: 'Sync thành công',
-        synced: inserted,
-      }),
+      body: JSON.stringify({ message: 'Sync thành công', synced: inserted }),
     };
 
   } catch (err) {
