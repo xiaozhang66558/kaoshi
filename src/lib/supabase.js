@@ -130,7 +130,7 @@ export async function createExamSession({ durationMins = 30, series = null, posi
   const existing = await getActiveSession();
   if (existing) throw new Error('Bạn đang có bài thi chưa hoàn thành');
 
-  let query = supabase.from('questions_cache').select('*').eq('is_active', true);  // ✅ Lấy full data
+  let query = supabase.from('questions_cache').select('*').eq('is_active', true).like('sheet_row_id', 'q_%');  // ✅ Lấy full data
   if (series) query = query.eq('series', series);
   if (position) query = query.eq('position', position);
   
