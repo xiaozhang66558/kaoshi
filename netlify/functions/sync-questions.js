@@ -88,7 +88,7 @@ exports.handler = async (event) => {
     const { error: deleteError } = await supabase
       .from('questions_cache')
       .delete()
-      .neq('id', 0);
+      .neq('sheet_row_id', 'none');
 
     if (deleteError) {
       console.error('Lỗi xóa dữ liệu cũ:', deleteError.message);
