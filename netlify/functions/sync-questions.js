@@ -57,7 +57,7 @@ exports.handler = async (event) => {
 
     console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
 
-    // Build questions and DEDUPLICATE by sheet_row_id
+    // Build questions and deduplicate
     const seen = new Map();
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -76,7 +76,6 @@ exports.handler = async (event) => {
       const q_zh     = String(row[3] || '').trim();
       const stableId = makeStableId(series, position, q_en, q_zh);
 
-      // Keep latest occurrence if duplicate
       seen.set(stableId, {
         sheet_row_id: stableId,
         series,
@@ -99,6 +98,7 @@ exports.handler = async (event) => {
     }
 
     const questions = Array.from(seen.values());
+    const activeIds = new Set(questions.map(q => q.sheet_row_id));
 
     if (questions.length === 0) {
       return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
@@ -111,6 +111,7 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
+    // Step 1: Upsert all questions from Google Sheet
     let inserted = 0;
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
@@ -126,7 +127,36 @@ exports.handler = async (event) => {
       }
     }
 
-    console.log(`[sync-questions] 🎉 Hoàn tất! ${inserted} câu hỏi`);
+    // Step 2: Deactivate q_ questions that are no longer in Google Sheet
+    // Get all active q_ question IDs from database
+    const { data: existingQs, error: fetchError } = await supabase
+      .from('questions_cache')
+      .select('id, sheet_row_id')
+      .like('sheet_row_id', 'q_%')
+      .eq('is_active', true);
+
+    if (!fetchError && existingQs) {
+      const toDeactivate = existingQs
+        .filter(q => !activeIds.has(q.sheet_row_id))
+        .map(q => q.id);
+
+      if (toDeactivate.length > 0) {
+        const { error: deactivateError } = await supabase
+          .from('questions_cache')
+          .update({ is_active: false })
+          .in('id', toDeactivate);
+
+        if (deactivateError) {
+          console.error('Lỗi deactivate:', deactivateError.message);
+        } else {
+          console.log(`🚫 Đã deactivate ${toDeactivate.length} câu hỏi đã xóa khỏi Google Sheet`);
+        }
+      } else {
+        console.log('✅ Không có câu hỏi nào cần deactivate');
+      }
+    }
+
+    console.log(`[sync-questions] 🎉 Hoàn tất! ${inserted} câu hỏi synced`);
 
     return {
       statusCode: 200,
