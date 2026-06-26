@@ -57,7 +57,6 @@ exports.handler = async (event) => {
 
     console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
 
-    // Build questions and deduplicate
     const seen = new Map();
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -127,8 +126,19 @@ exports.handler = async (event) => {
       }
     }
 
-    // Step 2: Deactivate q_ questions that are no longer in Google Sheet
-    // Get all active q_ question IDs from database
+    // Step 2: Deactivate ALL old row_ format questions
+    const { error: deactivateOldError } = await supabase
+      .from('questions_cache')
+      .update({ is_active: false })
+      .filter('sheet_row_id', 'like', 'row_%');
+
+    if (deactivateOldError) {
+      console.error('Lỗi deactivate old rows:', deactivateOldError.message);
+    } else {
+      console.log('✅ Deactivated all old row_ format questions');
+    }
+
+    // Step 3: Deactivate q_ questions no longer in Google Sheet
     const { data: existingQs, error: fetchError } = await supabase
       .from('questions_cache')
       .select('id, sheet_row_id')
@@ -147,12 +157,12 @@ exports.handler = async (event) => {
           .in('id', toDeactivate);
 
         if (deactivateError) {
-          console.error('Lỗi deactivate:', deactivateError.message);
+          console.error('Lỗi deactivate q_:', deactivateError.message);
         } else {
-          console.log(`🚫 Đã deactivate ${toDeactivate.length} câu hỏi đã xóa khỏi Google Sheet`);
+          console.log(`🚫 Deactivated ${toDeactivate.length} deleted questions`);
         }
       } else {
-        console.log('✅ Không có câu hỏi nào cần deactivate');
+        console.log('✅ No q_ questions to deactivate');
       }
     }
 
