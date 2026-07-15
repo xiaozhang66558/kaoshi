@@ -110,7 +110,15 @@ exports.handler = async (event) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Step 1: Upsert all questions from Google Sheet
+    // Step 0: Deactivate ALL questions first - clean slate
+    console.log('[sync-questions] Deactivating all questions for clean slate...');
+    await supabase
+      .from('questions_cache')
+      .update({ is_active: false })
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    console.log('✅ All questions deactivated');
+
+    // Step 1: Upsert all questions from Google Sheet (sets is_active: true)
     let inserted = 0;
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
@@ -123,46 +131,6 @@ exports.handler = async (event) => {
       } else {
         inserted += batch.length;
         console.log(`✅ Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(questions.length / BATCH_SIZE)}: ${batch.length} câu hỏi`);
-      }
-    }
-
-    // Step 2: Deactivate ALL old row_ format questions
-    const { error: deactivateOldError } = await supabase
-      .from('questions_cache')
-      .update({ is_active: false })
-      .filter('sheet_row_id', 'like', 'row_%');
-
-    if (deactivateOldError) {
-      console.error('Lỗi deactivate old rows:', deactivateOldError.message);
-    } else {
-      console.log('✅ Deactivated all old row_ format questions');
-    }
-
-    // Step 3: Deactivate q_ questions no longer in Google Sheet
-    const { data: existingQs, error: fetchError } = await supabase
-      .from('questions_cache')
-      .select('id, sheet_row_id')
-      .like('sheet_row_id', 'q_%')
-      .eq('is_active', true);
-
-    if (!fetchError && existingQs) {
-      const toDeactivate = existingQs
-        .filter(q => !activeIds.has(q.sheet_row_id))
-        .map(q => q.id);
-
-      if (toDeactivate.length > 0) {
-        const { error: deactivateError } = await supabase
-          .from('questions_cache')
-          .update({ is_active: false })
-          .in('id', toDeactivate);
-
-        if (deactivateError) {
-          console.error('Lỗi deactivate q_:', deactivateError.message);
-        } else {
-          console.log(`🚫 Deactivated ${toDeactivate.length} deleted questions`);
-        }
-      } else {
-        console.log('✅ No q_ questions to deactivate');
       }
     }
 
