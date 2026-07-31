@@ -2,20 +2,6 @@ const { createClient } = require('@supabase/supabase-js');
 const SHEET_RANGE = 'Sheet1!A2:J10000';
 const BATCH_SIZE = 200;
 
-function normalizeSeries(raw) {
-  if (!raw) return '';
-  let s = raw.trim().replace(/\s+/g, ' ');
-  const map = {
-    'AR 55FIVE MZ':              'AR 55FIVE',
-    'AR MZPLAY 55FIVE':          'AR 55FIVE',
-    'FB999':                     'AR FB999',
-    'AR印度- 巴基斯坦 - MZPLAY': 'AR 巴基斯坦',
-    'AR印度- 巴基斯坦 - 巴西':   'AR 巴基斯坦',
-    'AR VN':                     'AR VIETNAM',
-  };
-  return map[s] || s;
-}
-
 function makeStableId(series, position, question_en, question_zh) {
   const raw = `${series}||${position}||${question_en}||${question_zh}`;
   let hash = 0;
@@ -57,11 +43,19 @@ exports.handler = async (event) => {
 
     console.log(`[sync-questions] Đọc được ${rows.length} dòng từ Google Sheet`);
 
+    // Build questions and deduplicate by content
     const seen = new Map();
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const hasQuestion = (row[2] && row[2].trim()) || (row[3] && row[3].trim()) || (row[4] && row[4].trim());
       if (!hasQuestion) continue;
+
+      // Use series name EXACTLY as written in Google Sheet — no normalization
+      // This means TL must use consistent names, but any name will work
+      const series   = String(row[0] || '').trim();
+      const position = String(row[1] || '').trim();
+
+      if (!series || !position) continue; // skip rows without series or position
 
       const diffValue = String(row[6] || '1').trim();
       let difficulty = 'medium';
@@ -69,12 +63,11 @@ exports.handler = async (event) => {
       else if (diffValue === '2') difficulty = 'medium';
       else if (diffValue === '3') difficulty = 'hard';
 
-      const series   = normalizeSeries(row[0]);
-      const position = String(row[1] || '').trim();
-      const q_en     = String(row[2] || '').trim();
-      const q_zh     = String(row[3] || '').trim();
+      const q_en = String(row[2] || '').trim();
+      const q_zh = String(row[3] || '').trim();
       const stableId = makeStableId(series, position, q_en, q_zh);
 
+      // Keep latest occurrence if duplicate content
       seen.set(stableId, {
         sheet_row_id: stableId,
         series,
@@ -97,7 +90,6 @@ exports.handler = async (event) => {
     }
 
     const questions = Array.from(seen.values());
-    const activeIds = new Set(questions.map(q => q.sheet_row_id));
 
     if (questions.length === 0) {
       return { statusCode: 200, headers, body: JSON.stringify({ message: 'Không có câu hỏi hợp lệ', synced: 0 }) };
@@ -111,14 +103,14 @@ exports.handler = async (event) => {
     );
 
     // Step 0: Deactivate ALL questions first - clean slate
-    console.log('[sync-questions] Deactivating all questions for clean slate...');
+    console.log('[sync-questions] Deactivating all questions...');
     await supabase
       .from('questions_cache')
       .update({ is_active: false })
       .neq('id', '00000000-0000-0000-0000-000000000000');
     console.log('✅ All questions deactivated');
 
-    // Step 1: Upsert all questions from Google Sheet (sets is_active: true)
+    // Step 1: Upsert all questions from Google Sheet
     let inserted = 0;
     for (let i = 0; i < questions.length; i += BATCH_SIZE) {
       const batch = questions.slice(i, i + BATCH_SIZE);
