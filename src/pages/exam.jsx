@@ -123,7 +123,7 @@ export default function ExamPage() {
     }
     setPhase('loading');
     try {
-      await createExamSession({ durationMins: 30, series: selectedSeries, position: selectedPosition });
+     await createExamSession({ durationMins: 60, series: selectedSeries, position: selectedPosition });
       const active = await getActiveSession();
       await loadSession(active);
     } catch (err) {
