@@ -167,7 +167,7 @@ export async function getActiveSession() {
   return data;
 }
 
-export async function createExamSession({ durationMins = 30, series = null, position = null } = {}) {
+export async function createExamSession({ durationMins = 60, series = null, position = null } = {}) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Chưa đăng nhập');
 
