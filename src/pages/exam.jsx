@@ -100,7 +100,7 @@ export default function ExamPage() {
         }
         return t - 1;
       });
-    }, 10000);
+    }, 1000);
     return () => clearInterval(timerRef.current);
   }, [phase]);
 
